@@ -2,6 +2,10 @@ domain: patriot-framework.io
 layout: go.kubebuilder.io/v2
 projectName: kubernetes-network-simulator-operator
 repo: github.com/jsmadis/kubernetes-network-simulator-operator
+resources:
+- group: patriot
+  kind: Node
+  version: v1
 version: 3-alpha
 plugins:
   go.sdk.operatorframework.io/v2-alpha: {}
