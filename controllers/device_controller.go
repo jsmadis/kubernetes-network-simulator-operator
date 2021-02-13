@@ -38,10 +38,21 @@ type DeviceReconciler struct {
 // +kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=devices/status,verbs=get;update;patch
 
 func (r *DeviceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, error) {
-	_ = context.Background()
-	_ = r.Log.WithValues("device", req.NamespacedName)
+	ctx := context.Background()
+	log := r.Log.WithValues("device", req.NamespacedName)
 
-	// your logic here
+	var device networksimulatorv1.Device
+	if err := r.Get(ctx, req.NamespacedName, &device); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if !device.Spec.Active {
+		// TODO: suspend device?
+		log.V(1).Info("Not active device")
+		return ctrl.Result{}, nil
+	}
+
+
 
 	return ctrl.Result{}, nil
 }
