@@ -18,7 +18,6 @@ package controllers
 
 import (
 	"context"
-
 	"github.com/go-logr/logr"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -48,9 +47,18 @@ type DeviceReconciler struct {
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.7.0/pkg/reconcile
 func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("device", req.NamespacedName)
+	log := r.Log.WithValues("device", req.NamespacedName)
 
-	// your logic here
+	var device networksimulatorv1.Device
+	if err := r.Get(ctx, req.NamespacedName, &device); err != nil {
+		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if !device.Spec.Active {
+		// TODO: suspend device?
+		log.V(1).Info("Not active device")
+		return ctrl.Result{}, nil
+	}
 
 	return ctrl.Result{}, nil
 }

@@ -17,6 +17,7 @@ limitations under the License.
 package v1
 
 import (
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,8 +29,11 @@ type DeviceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Device. Edit device_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	// Specifies the pod that contains container of wanted device
+	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
+
+	// Specifies if the device is active
+	Active bool `json:"active"`
 }
 
 // DeviceStatus defines the observed state of Device
