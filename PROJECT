@@ -5,4 +5,14 @@ plugins:
   scorecard.sdk.operatorframework.io/v2: {}
 projectName: kubernetes-network-simulator-operator
 repo: github.com/jsmadis/kubernetes-network-simulator-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: patriot-framework.io
+  group: network-simulator
+  kind: Device
+  path: github.com/jsmadis/kubernetes-network-simulator-operator/api/v1
+  version: v1
 version: "3"
