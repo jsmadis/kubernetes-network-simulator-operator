@@ -19,6 +19,8 @@ package controllers
 import (
 	"context"
 	"github.com/go-logr/logr"
+	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -54,11 +56,42 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
+	constructPodForDevice := func(device *networksimulatorv1.Device) (*v1.Pod, error) {
+		name := device.Name + "-pod"
+		pod := &v1.Pod{
+			ObjectMeta: v12.ObjectMeta{
+				Labels:      make(map[string]string),
+				Annotations: make(map[string]string),
+				Name:        name,
+				Namespace:   device.Namespace,
+			},
+			Spec: *device.Spec.PodTemplate.Spec.DeepCopy(),
+		}
+		if err := ctrl.SetControllerReference(device, pod, r.Scheme); err != nil {
+			return nil, err
+		}
+		return pod, nil
+	}
+
 	if !device.Spec.Active {
 		// TODO: suspend device?
 		log.V(1).Info("Not active device")
 		return ctrl.Result{}, nil
 	}
+
+	pod, err := constructPodForDevice(&device)
+
+	if err != nil {
+		log.V(1).Info("Failed to create pod for device")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Create(ctx, pod); err != nil {
+		log.Error(err, "unable to create Pod for device", "pod", pod)
+		return ctrl.Result{}, err
+	}
+
+	log.V(1).Info("Created pod")
 
 	return ctrl.Result{}, nil
 }
