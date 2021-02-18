@@ -1,0 +1,24 @@
+apiVersion: network-simulator.patriot-framework.io/v1
+kind: Network
+
+metadata:
+  name: network-sample
+spec:
+  name: network-example
+  devices:
+    - apiVersion: network-simulator.patriot-framework.io/v1
+      kind: Device
+      metadata:
+        name: device-sample
+      spec:
+        active: true
+        podTemplate:
+          metadata:
+            labels:
+              app: hello-kubernetes
+          spec:
+            containers:
+              - name: hello-kubernetes
+                image: paulbouwer/hello-kubernetes:1.8
+                ports:
+                  - containerPort: 8080

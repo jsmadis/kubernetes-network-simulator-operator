@@ -32,3 +32,29 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - network-simulator.patriot-framework.io
+  resources:
+  - networks
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - network-simulator.patriot-framework.io
+  resources:
+  - networks/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - network-simulator.patriot-framework.io
+  resources:
+  - networks/status
+  verbs:
+  - get
+  - patch
+  - update

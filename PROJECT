@@ -15,4 +15,12 @@ resources:
   kind: Device
   path: github.com/jsmadis/kubernetes-network-simulator-operator/api/v1
   version: v1
+- api:
+    crdVersion: v1
+  controller: true
+  domain: patriot-framework.io
+  group: network-simulator
+  kind: Network
+  path: github.com/jsmadis/kubernetes-network-simulator-operator/api/v1
+  version: v1
 version: "3"
