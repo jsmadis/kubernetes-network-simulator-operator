@@ -63,7 +63,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 				Labels:      make(map[string]string),
 				Annotations: make(map[string]string),
 				Name:        name,
-				Namespace:   device.Namespace,
+				Namespace:   device.Spec.NetworkName,
 			},
 			Spec: *device.Spec.PodTemplate.Spec.DeepCopy(),
 		}

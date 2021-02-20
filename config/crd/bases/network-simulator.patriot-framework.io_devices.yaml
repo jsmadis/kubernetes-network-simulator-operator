@@ -14,7 +14,7 @@ spec:
     listKind: DeviceList
     plural: devices
     singular: device
-  scope: Namespaced
+  scope: Cluster
   versions:
   - name: v1
     schema:
@@ -39,6 +39,9 @@ spec:
               active:
                 description: Specifies if the device is active
                 type: boolean
+              network_name:
+                description: Name of the network where to deploy device
+                type: string
               podTemplate:
                 description: Specifies the pod that contains container of wanted device
                 properties:
@@ -6283,6 +6286,7 @@ spec:
                 type: object
             required:
             - active
+            - network_name
             - podTemplate
             type: object
           status:

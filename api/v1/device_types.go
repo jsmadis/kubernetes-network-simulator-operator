@@ -29,6 +29,9 @@ type DeviceSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
+	// Name of the network where to deploy device
+	NetworkName string `json:"network_name"`
+
 	// Specifies the pod that contains container of wanted device
 	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
 
@@ -44,6 +47,7 @@ type DeviceStatus struct {
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
+//+kubebuilder:resource:scope=Cluster
 
 // Device is the Schema for the devices API
 type Device struct {

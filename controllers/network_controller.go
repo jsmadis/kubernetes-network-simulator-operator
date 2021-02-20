@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -57,12 +58,11 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	}
 
 	createNameSpace := func(network *networksimulatorv1.Network) (*v1.Namespace, error) {
-		name := network.Name + "-namespace"
 		namespace := &v1.Namespace{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      make(map[string]string),
 				Annotations: make(map[string]string),
-				Name:        name,
+				Name:        network.Name,
 			},
 			Spec:   v1.NamespaceSpec{},
 			Status: v1.NamespaceStatus{},
@@ -71,6 +71,28 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			return nil, err
 		}
 		return namespace, nil
+	}
+
+	createNetworkPolicy := func(network *networksimulatorv1.Network, namespace *v1.Namespace) (*v12.NetworkPolicy, error) {
+		name := network.Spec.Name + "-network-policy"
+		networkPolicy := &v12.NetworkPolicy{
+			ObjectMeta: metav1.ObjectMeta{
+				Labels:      make(map[string]string),
+				Annotations: make(map[string]string),
+				Name:        name,
+				Namespace:   namespace.Name,
+			},
+			Spec: v12.NetworkPolicySpec{
+				PodSelector: metav1.LabelSelector{},
+				Ingress:     nil,
+				Egress:      nil,
+				PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress, v12.PolicyTypeIngress},
+			},
+		}
+		if err := ctrl.SetControllerReference(network, networkPolicy, r.Scheme); err != nil {
+			return nil, err
+		}
+		return networkPolicy, nil
 	}
 
 	namespace, err := createNameSpace(&network)
@@ -83,8 +105,21 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		log.Error(err, "Unable to create Namespace for network", "namespace", namespace)
 		return ctrl.Result{}, err
 	}
-
 	log.V(1).Info("Created namespace", "namespace", namespace.Name)
+
+	networkPolicy, err := createNetworkPolicy(&network, namespace)
+
+	if err != nil {
+		log.V(1).Info("Failed to create network policy")
+		return ctrl.Result{}, err
+	}
+
+	if err := r.Create(ctx, networkPolicy); err != nil {
+		log.Error(err, "Unable to create network policy for network", "network-policy", networkPolicy)
+		return ctrl.Result{}, err
+	}
+
+	log.V(1).Info("Created network policy", "network-policy", networkPolicy)
 
 	return ctrl.Result{}, nil
 }

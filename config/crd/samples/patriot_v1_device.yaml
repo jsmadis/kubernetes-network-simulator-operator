@@ -4,6 +4,7 @@ metadata:
   name: device-sample
 spec:
   active: true
+  network_name: network-sample
   podTemplate:
     metadata:
       labels:

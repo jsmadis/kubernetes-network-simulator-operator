@@ -30,9 +30,6 @@ type NetworkSpec struct {
 
 	// Name of the network
 	Name string `json:"name"`
-
-	// Devices inside network
-	Devices []Device `json:"devices"`
 }
 
 // NetworkStatus defines the observed state of Network
