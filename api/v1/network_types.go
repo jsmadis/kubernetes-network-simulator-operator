@@ -30,6 +30,14 @@ type NetworkSpec struct {
 
 	// Name of the network
 	Name string `json:"name"`
+
+	// Allow traffic into network
+	// +optional
+	AllowIngressTraffic bool `json:"AllowIngressTraffic"`
+
+	// Allow traffic from network
+	// +optional
+	AllowEgressTraffic bool `json:"AllowEgressTraffic"`
 }
 
 // NetworkStatus defines the observed state of Network

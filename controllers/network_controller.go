@@ -75,6 +75,26 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	createNetworkPolicy := func(network *networksimulatorv1.Network, namespace *v1.Namespace) (*v12.NetworkPolicy, error) {
 		name := network.Spec.Name + "-network-policy"
+		var ingress []v12.NetworkPolicyIngressRule
+		var egress []v12.NetworkPolicyEgressRule
+
+		log.V(1).Info("Ingress rule:", "ingress", ingress)
+		log.V(1).Info("Egress rule:", "egress", egress)
+
+		if network.Spec.AllowEgressTraffic {
+			egress = append(egress, v12.NetworkPolicyEgressRule{
+				Ports: nil,
+				To:    nil,
+			})
+		}
+		if network.Spec.AllowIngressTraffic {
+			ingress = append(ingress, v12.NetworkPolicyIngressRule{
+				Ports: nil,
+				From:  nil,
+			})
+		}
+		log.V(1).Info("Ingress rule:", "ingress", ingress)
+		log.V(1).Info("Egress rule:", "egress", egress)
 		networkPolicy := &v12.NetworkPolicy{
 			ObjectMeta: metav1.ObjectMeta{
 				Labels:      make(map[string]string),
@@ -84,8 +104,8 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			},
 			Spec: v12.NetworkPolicySpec{
 				PodSelector: metav1.LabelSelector{},
-				Ingress:     nil,
-				Egress:      nil,
+				Ingress:     ingress,
+				Egress:      egress,
 				PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress, v12.PolicyTypeIngress},
 			},
 		}

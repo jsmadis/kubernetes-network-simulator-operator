@@ -36,6 +36,12 @@ spec:
           spec:
             description: NetworkSpec defines the desired state of Network
             properties:
+              AllowEgressTraffic:
+                description: Allow traffic from network
+                type: boolean
+              AllowIngressTraffic:
+                description: Allow traffic into network
+                type: boolean
               name:
                 description: Name of the network
                 type: string
