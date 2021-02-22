@@ -33,6 +33,8 @@ type NetworkReconciler struct {
 	util.ReconcilerBase
 }
 
+const controllerName = "NetworkCRD"
+
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=networks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=networks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=networks/finalizers,verbs=update
@@ -52,6 +54,33 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	var network networksimulatorv1.Network
 	if err := r.GetClient().Get(ctx, req.NamespacedName, &network); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
+	}
+
+	if ok, err := r.IsValid(&network); !ok {
+		log.Error(err, "Invalid CR of network", "network", "CR", network)
+		return ctrl.Result{RequeueAfter: 0}, err
+	}
+
+	if ok := r.IsInitialized(&network); !ok {
+		err := r.GetClient().Update(context.TODO(), &network)
+		if err != nil {
+			log.Error(err, "unable to update instance", "network", network)
+			return ctrl.Result{RequeueAfter: 0}, err
+		}
+		return ctrl.Result{}, nil
+	}
+
+	if util.IsBeingDeleted(&network) {
+		if !util.HasFinalizer(&network, controllerName) {
+			return ctrl.Result{}, nil
+		}
+		err := r.manageCleanUpLogic(network)
+		if err != nil {
+			log.Error(err, "unable to delete network", "network", network)
+			return ctrl.Result{RequeueAfter: 0}, err
+		}
+		return ctrl.Result{}, nil
+
 	}
 
 	namespace, err := r.createNamespace(&network, ctx, log)
@@ -74,6 +103,18 @@ func (r *NetworkReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func (r *NetworkReconciler) IsInitialized(obj metav1.Object) bool {
+	networkCrd, ok := obj.(*networksimulatorv1.Network)
+	if !ok {
+		return false
+	}
+	if util.HasFinalizer(networkCrd, controllerName) {
+		return true
+	}
+	util.AddFinalizer(networkCrd, controllerName)
+	return false
+
+}
 
 func (r *NetworkReconciler) createNamespace(
 	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) (*v1.Namespace, error) {
@@ -104,7 +145,6 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 	name := network.Spec.Name + "-network-policy"
 	var ingress []v12.NetworkPolicyIngressRule
 	var egress []v12.NetworkPolicyEgressRule
-
 
 	if network.Spec.AllowEgressTraffic {
 		egress = append(egress, v12.NetworkPolicyEgressRule{
@@ -144,5 +184,9 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 	}
 
 	log.V(1).Info("Created network policy", "network-policy", networkPolicy)
+	return nil
+}
+
+func (r NetworkReconciler) manageCleanUpLogic(network networksimulatorv1.Network) error {
 	return nil
 }

@@ -18,6 +18,7 @@ package main
 
 import (
 	"flag"
+	"github.com/jsmadis/kubernetes-network-simulator-operator/pkg/util"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -87,9 +88,10 @@ func main() {
 		os.Exit(1)
 	}
 	if err = (&controllers.NetworkReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("Network"),
-		Scheme: mgr.GetScheme(),
+		ReconcilerBase: util.NewRencolicerBase(
+			mgr.GetClient(),
+			ctrl.Log.WithName("controllers").WithName("Network"),
+			mgr.GetScheme()),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "Network")
 		os.Exit(1)

@@ -43,5 +43,3 @@ func (r *ReconcilerBase) GetClient() client.Client {
 func (r *ReconcilerBase) GetScheme() *runtime.Scheme {
 	return r.Scheme
 }
-
-
