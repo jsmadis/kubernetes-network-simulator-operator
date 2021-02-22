@@ -20,19 +20,17 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	networksimulatorv1 "github.com/jsmadis/kubernetes-network-simulator-operator/api/v1"
+	"github.com/jsmadis/kubernetes-network-simulator-operator/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // NetworkReconciler reconciles a Network object
 type NetworkReconciler struct {
-	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	util.ReconcilerBase
 }
 
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=networks,verbs=get;list;watch;create;update;patch;delete
@@ -52,7 +50,7 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	log := r.Log.WithValues("network", req.NamespacedName)
 
 	var network networksimulatorv1.Network
-	if err := r.Get(ctx, req.NamespacedName, &network); err != nil {
+	if err := r.GetClient().Get(ctx, req.NamespacedName, &network); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
@@ -93,7 +91,7 @@ func (r *NetworkReconciler) createNamespace(
 		log.Error(err, "Unable to set controller reference to namespace")
 		return nil, err
 	}
-	if err := r.Create(ctx, namespace); err != nil {
+	if err := r.GetClient().Create(ctx, namespace); err != nil {
 		log.Error(err, "Unable to create Namespace for network", "namespace", namespace)
 		return nil, err
 	}
@@ -140,7 +138,7 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 		return err
 	}
 
-	if err := r.Create(ctx, networkPolicy); err != nil {
+	if err := r.GetClient().Create(ctx, networkPolicy); err != nil {
 		log.Error(err, "Unable to create network policy for network", "network-policy", networkPolicy)
 		return err
 	}
