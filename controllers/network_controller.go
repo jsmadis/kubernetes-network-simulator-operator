@@ -19,14 +19,13 @@ package controllers
 import (
 	"context"
 	"github.com/go-logr/logr"
+	networksimulatorv1 "github.com/jsmadis/kubernetes-network-simulator-operator/api/v1"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-
-	networksimulatorv1 "github.com/jsmadis/kubernetes-network-simulator-operator/api/v1"
 )
 
 // NetworkReconciler reconciles a Network object
@@ -57,89 +56,15 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	createNameSpace := func(network *networksimulatorv1.Network) (*v1.Namespace, error) {
-		namespace := &v1.Namespace{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels:      make(map[string]string),
-				Annotations: make(map[string]string),
-				Name:        network.Name,
-			},
-			Spec:   v1.NamespaceSpec{},
-			Status: v1.NamespaceStatus{},
-		}
-		if err := ctrl.SetControllerReference(network, namespace, r.Scheme); err != nil {
-			return nil, err
-		}
-		return namespace, nil
-	}
-
-	createNetworkPolicy := func(network *networksimulatorv1.Network, namespace *v1.Namespace) (*v12.NetworkPolicy, error) {
-		name := network.Spec.Name + "-network-policy"
-		var ingress []v12.NetworkPolicyIngressRule
-		var egress []v12.NetworkPolicyEgressRule
-
-		log.V(1).Info("Ingress rule:", "ingress", ingress)
-		log.V(1).Info("Egress rule:", "egress", egress)
-
-		if network.Spec.AllowEgressTraffic {
-			egress = append(egress, v12.NetworkPolicyEgressRule{
-				Ports: nil,
-				To:    nil,
-			})
-		}
-		if network.Spec.AllowIngressTraffic {
-			ingress = append(ingress, v12.NetworkPolicyIngressRule{
-				Ports: nil,
-				From:  nil,
-			})
-		}
-		log.V(1).Info("Ingress rule:", "ingress", ingress)
-		log.V(1).Info("Egress rule:", "egress", egress)
-		networkPolicy := &v12.NetworkPolicy{
-			ObjectMeta: metav1.ObjectMeta{
-				Labels:      make(map[string]string),
-				Annotations: make(map[string]string),
-				Name:        name,
-				Namespace:   namespace.Name,
-			},
-			Spec: v12.NetworkPolicySpec{
-				PodSelector: metav1.LabelSelector{},
-				Ingress:     ingress,
-				Egress:      egress,
-				PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress, v12.PolicyTypeIngress},
-			},
-		}
-		if err := ctrl.SetControllerReference(network, networkPolicy, r.Scheme); err != nil {
-			return nil, err
-		}
-		return networkPolicy, nil
-	}
-
-	namespace, err := createNameSpace(&network)
+	namespace, err := r.createNamespace(&network, ctx, log)
 	if err != nil {
-		log.V(1).Info("Failed to create namespace")
 		return ctrl.Result{}, err
 	}
 
-	if err := r.Create(ctx, namespace); err != nil {
-		log.Error(err, "Unable to create Namespace for network", "namespace", namespace)
-		return ctrl.Result{}, err
-	}
-	log.V(1).Info("Created namespace", "namespace", namespace.Name)
-
-	networkPolicy, err := createNetworkPolicy(&network, namespace)
-
+	err = r.createNetworkPolicy(&network, namespace, ctx, log)
 	if err != nil {
-		log.V(1).Info("Failed to create network policy")
 		return ctrl.Result{}, err
 	}
-
-	if err := r.Create(ctx, networkPolicy); err != nil {
-		log.Error(err, "Unable to create network policy for network", "network-policy", networkPolicy)
-		return ctrl.Result{}, err
-	}
-
-	log.V(1).Info("Created network policy", "network-policy", networkPolicy)
 
 	return ctrl.Result{}, nil
 }
@@ -149,4 +74,77 @@ func (r *NetworkReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networksimulatorv1.Network{}).
 		Complete(r)
+}
+
+
+func (r *NetworkReconciler) createNamespace(
+	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) (*v1.Namespace, error) {
+
+	namespace := &v1.Namespace{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+			Name:        network.Name,
+		},
+		Spec:   v1.NamespaceSpec{},
+		Status: v1.NamespaceStatus{},
+	}
+	if err := ctrl.SetControllerReference(network, namespace, r.Scheme); err != nil {
+		log.Error(err, "Unable to set controller reference to namespace")
+		return nil, err
+	}
+	if err := r.Create(ctx, namespace); err != nil {
+		log.Error(err, "Unable to create Namespace for network", "namespace", namespace)
+		return nil, err
+	}
+	log.V(1).Info("Created namespace", "namespace", namespace.Name)
+	return namespace, nil
+}
+
+func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Network, namespace *v1.Namespace,
+	ctx context.Context, log logr.Logger) error {
+	name := network.Spec.Name + "-network-policy"
+	var ingress []v12.NetworkPolicyIngressRule
+	var egress []v12.NetworkPolicyEgressRule
+
+
+	if network.Spec.AllowEgressTraffic {
+		egress = append(egress, v12.NetworkPolicyEgressRule{
+			Ports: nil,
+			To:    nil,
+		})
+	}
+	if network.Spec.AllowIngressTraffic {
+		ingress = append(ingress, v12.NetworkPolicyIngressRule{
+			Ports: nil,
+			From:  nil,
+		})
+	}
+
+	networkPolicy := &v12.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+			Name:        name,
+			Namespace:   namespace.Name,
+		},
+		Spec: v12.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{},
+			Ingress:     ingress,
+			Egress:      egress,
+			PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress, v12.PolicyTypeIngress},
+		},
+	}
+	if err := ctrl.SetControllerReference(network, networkPolicy, r.Scheme); err != nil {
+		log.Error(err, "Unable to set controller reference to network policy")
+		return err
+	}
+
+	if err := r.Create(ctx, networkPolicy); err != nil {
+		log.Error(err, "Unable to create network policy for network", "network-policy", networkPolicy)
+		return err
+	}
+
+	log.V(1).Info("Created network policy", "network-policy", networkPolicy)
+	return nil
 }
