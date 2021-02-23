@@ -24,6 +24,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -38,6 +39,9 @@ const controllerName = "NetworkCRD"
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=networks,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=networks/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=networks/finalizers,verbs=update
+//+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=namespaces,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=namespaces/status,verbs=get
+//+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=networkpolicies,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -74,7 +78,7 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		if !util.HasFinalizer(&network, controllerName) {
 			return ctrl.Result{}, nil
 		}
-		err := r.manageCleanUpLogic(network)
+		err := r.ManageCleanUpLogic(network, ctx, log)
 		if err != nil {
 			log.Error(err, "unable to delete network", "network", network)
 			return ctrl.Result{RequeueAfter: 0}, err
@@ -83,12 +87,7 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 	}
 
-	namespace, err := r.createNamespace(&network, ctx, log)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-
-	err = r.createNetworkPolicy(&network, namespace, ctx, log)
+	err := r.ManageOperatorLogic(network, ctx, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
@@ -113,17 +112,96 @@ func (r *NetworkReconciler) IsInitialized(obj metav1.Object) bool {
 	}
 	util.AddFinalizer(networkCrd, controllerName)
 	return false
+}
 
+func (r NetworkReconciler) IsNamespaceCreated(network networksimulatorv1.Network, ctx context.Context) bool {
+	namespace, err := r.getNamespace(network, ctx)
+	if err != nil {
+		return false
+	}
+	return namespace.Name == network.Spec.Name
+}
+
+func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Network, ctx context.Context) bool {
+	namespacedName := types.NamespacedName{
+		Namespace: network.Spec.Name,
+		Name:      network.Spec.Name + "-network-policy",
+	}
+
+	var networkPolicy v12.NetworkPolicy
+	if err := r.GetClient().Get(ctx, namespacedName, &networkPolicy); err != nil {
+		return false
+	}
+	return networkPolicy.Name == network.Spec.Name+"-network-policy"
+}
+
+func (r NetworkReconciler) ManageOperatorLogic(
+	network networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+
+	// is namespace created? --> create everything
+	if !r.IsNamespaceCreated(network, ctx) {
+		namespace, err := r.createNamespace(&network, ctx, log)
+		if err != nil {
+			return err
+		}
+		err = r.createNetworkPolicy(&network, namespace, ctx, log)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	//is network policy created? --> create only network policy
+	if !r.IsNetworkPolicyCreated(network, ctx) {
+		namespace, err := r.getNamespace(network, ctx)
+		if err != nil {
+			log.Error(err, "unable to get namespace for network", "network", network)
+			return err
+		}
+
+		err = r.createNetworkPolicy(&network, namespace, ctx, log)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (r NetworkReconciler) ManageCleanUpLogic(network networksimulatorv1.Network,
+	ctx context.Context, log logr.Logger) error {
+
+	namespace, err := r.getNamespace(network, ctx)
+	if err != nil {
+		// namespace doesn't exist, we don't need to to anything
+		return nil
+	}
+	if err := r.GetClient().Delete(ctx, namespace); err != nil {
+		log.Error(err, "unable to delete namespace for network when cleaning up",
+			"namespace", namespace)
+		return err
+	}
+	return nil
+}
+
+func (r NetworkReconciler) getNamespace(network networksimulatorv1.Network, ctx context.Context) (*v1.Namespace, error) {
+	namespacedName := types.NamespacedName{
+		Name: network.Spec.Name,
+	}
+
+	var namespace v1.Namespace
+	if err := r.GetClient().Get(ctx, namespacedName, &namespace); err != nil {
+		return nil, err
+	}
+	return &namespace, nil
 }
 
 func (r *NetworkReconciler) createNamespace(
 	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) (*v1.Namespace, error) {
-
 	namespace := &v1.Namespace{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
-			Name:        network.Name,
+			Name:        network.Spec.Name,
 		},
 		Spec:   v1.NamespaceSpec{},
 		Status: v1.NamespaceStatus{},
@@ -136,7 +214,7 @@ func (r *NetworkReconciler) createNamespace(
 		log.Error(err, "Unable to create Namespace for network", "namespace", namespace)
 		return nil, err
 	}
-	log.V(1).Info("Created namespace", "namespace", namespace.Name)
+	log.V(1).Info("Created namespace", "namespace", namespace)
 	return namespace, nil
 }
 
@@ -184,9 +262,5 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 	}
 
 	log.V(1).Info("Created network policy", "network-policy", networkPolicy)
-	return nil
-}
-
-func (r NetworkReconciler) manageCleanUpLogic(network networksimulatorv1.Network) error {
 	return nil
 }

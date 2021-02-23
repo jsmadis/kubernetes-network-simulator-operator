@@ -35,6 +35,36 @@ rules:
 - apiGroups:
   - network-simulator.patriot-framework.io
   resources:
+  - namespaces
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - network-simulator.patriot-framework.io
+  resources:
+  - namespaces/status
+  verbs:
+  - get
+- apiGroups:
+  - network-simulator.patriot-framework.io
+  resources:
+  - networkpolicies
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - network-simulator.patriot-framework.io
+  resources:
   - networks
   verbs:
   - create
