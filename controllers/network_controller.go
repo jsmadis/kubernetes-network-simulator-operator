@@ -71,7 +71,7 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			log.Error(err, "unable to update instance", "network", network)
 			return ctrl.Result{RequeueAfter: 0}, err
 		}
-		return ctrl.Result{}, nil
+		return ctrl.Result{RequeueAfter: 0}, nil
 	}
 
 	if util.IsBeingDeleted(&network) {
@@ -83,16 +83,20 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 			log.Error(err, "unable to delete network", "network", network)
 			return ctrl.Result{RequeueAfter: 0}, err
 		}
-		return ctrl.Result{}, nil
+		util.RemoveFinalizer(&network, controllerName)
+		err = r.GetClient().Update(context.TODO(), &network)
+		if err != nil {
+			log.Error(err, "unable to update network", "network", network)
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{RequeueAfter: 0}, nil
 
 	}
-
 	err := r.ManageOperatorLogic(network, ctx, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-
-	return ctrl.Result{}, nil
+	return ctrl.Result{RequeueAfter: 0}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

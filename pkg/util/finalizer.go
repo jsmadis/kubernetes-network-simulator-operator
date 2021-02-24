@@ -21,3 +21,7 @@ func HasFinalizer(obj client.Object, finalizer string) bool {
 func IsBeingDeleted(object client.Object) bool {
 	return !object.GetDeletionTimestamp().IsZero()
 }
+
+func RemoveFinalizer(obj client.Object, finalizer string) {
+	controllerutil.RemoveFinalizer(obj, finalizer)
+}
