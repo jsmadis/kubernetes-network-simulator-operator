@@ -27,6 +27,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 // NetworkReconciler reconciles a Network object
@@ -101,9 +104,46 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NetworkReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&networksimulatorv1.Network{}).
 		Complete(r)
+	if err != nil {
+		return err
+	}
+	return r.addWatcher(mgr)
+}
+
+// addWatcher adds watcher for resources created by network controller
+func (r NetworkReconciler) addWatcher(mgr ctrl.Manager) error {
+	c, err := controller.New("network-controller", mgr, controller.Options{Reconciler: &r})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes to primary resource network
+	err = c.Watch(&source.Kind{Type: &networksimulatorv1.Network{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
+	}
+
+	// Watch for namespaces owned by Network
+	err = c.Watch(&source.Kind{Type: &v1.Namespace{}}, &handler.EnqueueRequestForOwner{
+		OwnerType:    &networksimulatorv1.Network{},
+		IsController: true,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Watch for network policies owned by Network
+	err = c.Watch(&source.Kind{Type: &v12.NetworkPolicy{}}, &handler.EnqueueRequestForOwner{
+		OwnerType:    &networksimulatorv1.Network{},
+		IsController: true,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *NetworkReconciler) IsInitialized(obj metav1.Object) bool {
