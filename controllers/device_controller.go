@@ -19,9 +19,9 @@ package controllers
 import (
 	"context"
 	"github.com/go-logr/logr"
+	"github.com/jsmadis/kubernetes-network-simulator-operator/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -30,9 +30,7 @@ import (
 
 // DeviceReconciler reconciles a Device object
 type DeviceReconciler struct {
-	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	util.ReconcilerBase
 }
 
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=devices,verbs=get;list;watch;create;update;patch;delete
@@ -52,46 +50,26 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	log := r.Log.WithValues("device", req.NamespacedName)
 
 	var device networksimulatorv1.Device
-	if err := r.Get(ctx, req.NamespacedName, &device); err != nil {
+	if err := r.GetClient().Get(ctx, req.NamespacedName, &device); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	constructPodForDevice := func(device *networksimulatorv1.Device) (*v1.Pod, error) {
-		name := device.Name + "-pod"
-		pod := &v1.Pod{
-			ObjectMeta: v12.ObjectMeta{
-				Labels:      make(map[string]string),
-				Annotations: make(map[string]string),
-				Name:        name,
-				Namespace:   device.Spec.NetworkName,
-			},
-			Spec: *device.Spec.PodTemplate.Spec.DeepCopy(),
+	if ok, err := r.IsValid(&device); !ok {
+		log.Error(err, "Invalid CR of network", "device", "CR", device)
+		return ctrl.Result{RequeueAfter: 0}, err
+	}
+
+	if ok := r.IsInitialized(&device); !ok {
+		err := r.GetClient().Update(context.TODO(), &device)
+		if err != nil {
+			log.Error(err, "unable to update instance", "device", device)
+			return ctrl.Result{RequeueAfter: 0}, err
 		}
-		if err := ctrl.SetControllerReference(device, pod, r.Scheme); err != nil {
-			return nil, err
-		}
-		return pod, nil
+		return ctrl.Result{RequeueAfter: 0}, nil
 	}
 
-	if !device.Spec.Active {
-		// TODO: suspend device?
-		log.V(1).Info("Not active device")
-		return ctrl.Result{}, nil
-	}
 
-	pod, err := constructPodForDevice(&device)
 
-	if err != nil {
-		log.V(1).Info("Failed to create pod for device")
-		return ctrl.Result{}, err
-	}
-
-	if err := r.Create(ctx, pod); err != nil {
-		log.Error(err, "unable to create Pod for device", "pod", pod)
-		return ctrl.Result{}, err
-	}
-
-	log.V(1).Info("Created pod")
 
 	return ctrl.Result{}, nil
 }
@@ -101,4 +79,30 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&networksimulatorv1.Device{}).
 		Complete(r)
+}
+
+func (r DeviceReconciler) createPod(
+	device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) (*v1.Pod, error) {
+	name := device.Name + "-pod"
+	pod := &v1.Pod{
+		ObjectMeta: v12.ObjectMeta{
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+			Name:        name,
+			Namespace:   device.Spec.NetworkName,
+		},
+		Spec: *device.Spec.PodTemplate.Spec.DeepCopy(),
+	}
+	if err := ctrl.SetControllerReference(device, pod, r.Scheme); err != nil {
+		log.V(1).Info("Failed to set controller reference for pod", "pod", pod)
+		return nil, err
+	}
+
+	if err := r.GetClient().Create(ctx, pod); err != nil {
+		log.Error(err, "unable to create Pod for device", "pod", pod)
+		return nil, err
+	}
+	log.V(1).Info("Created pod")
+
+	return pod, nil
 }
