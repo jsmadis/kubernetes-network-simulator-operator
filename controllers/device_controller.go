@@ -21,7 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jsmadis/kubernetes-network-simulator-operator/pkg/util"
 	v1 "k8s.io/api/core/v1"
-	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -81,11 +81,23 @@ func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
+func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
+	networkCrd, ok := obj.(*networksimulatorv1.Network)
+	if !ok {
+		return false
+	}
+	if util.HasFinalizer(networkCrd, controllerName) {
+		return true
+	}
+	util.AddFinalizer(networkCrd, controllerName)
+	return false
+}
+
 func (r DeviceReconciler) createPod(
 	device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) (*v1.Pod, error) {
 	name := device.Name + "-pod"
 	pod := &v1.Pod{
-		ObjectMeta: v12.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
 			Name:        name,
