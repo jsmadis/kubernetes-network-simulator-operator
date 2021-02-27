@@ -25,6 +25,9 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	networksimulatorv1 "github.com/jsmadis/kubernetes-network-simulator-operator/api/v1"
 )
@@ -97,9 +100,36 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	return ctrl.NewControllerManagedBy(mgr).
+	err := ctrl.NewControllerManagedBy(mgr).
 		For(&networksimulatorv1.Device{}).
 		Complete(r)
+	if err != nil {
+		return err
+	}
+	return r.addWatchers(mgr)
+}
+
+// addWatchers adds watcher for resources created by device controller
+func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
+	c, err := controller.New("device-controller", mgr, controller.Options{Reconciler: &r})
+	if err != nil {
+		return err
+	}
+
+	// Watch for changes in device CRD
+	if err := c.Watch(&source.Kind{Type: &networksimulatorv1.Device{}}, &handler.EnqueueRequestForObject{}); err != nil {
+		return err
+	}
+
+	// Watch for pod owned by device
+	err = c.Watch(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForOwner{
+		OwnerType:    &networksimulatorv1.Device{},
+		IsController: true,
+	})
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
@@ -145,7 +175,7 @@ func (r DeviceReconciler) IsPodCreated(device networksimulatorv1.Device, ctx con
 	if err != nil {
 		return false
 	}
-	return pod.Name == device.Name + "-pod"
+	return pod.Name == device.Name+"-pod"
 }
 
 func (r DeviceReconciler) getPod(device networksimulatorv1.Device, ctx context.Context) (*v1.Pod, error) {
