@@ -62,19 +62,18 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 	if err := r.GetClient().Get(ctx, req.NamespacedName, &network); err != nil {
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
-
 	if ok, err := r.IsValid(&network); !ok {
 		log.Error(err, "Invalid CR of network", "network", "CR", network)
-		return ctrl.Result{RequeueAfter: 0}, err
+		return ctrl.Result{}, err
 	}
 
 	if ok := r.IsInitialized(&network); !ok {
-		err := r.GetClient().Update(context.TODO(), &network)
+		err := r.GetClient().Update(ctx, &network)
 		if err != nil {
 			log.Error(err, "unable to update instance", "network", network)
-			return ctrl.Result{RequeueAfter: 0}, err
+			return ctrl.Result{}, err
 		}
-		return ctrl.Result{RequeueAfter: 0}, nil
+		return ctrl.Result{}, nil
 	}
 
 	if util.IsBeingDeleted(&network) {
@@ -84,22 +83,22 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		err := r.ManageCleanUpLogic(network, ctx, log)
 		if err != nil {
 			log.Error(err, "unable to delete network", "network", network)
-			return ctrl.Result{RequeueAfter: 0}, err
+			return ctrl.Result{}, err
 		}
 		util.RemoveFinalizer(&network, controllerName)
-		err = r.GetClient().Update(context.TODO(), &network)
+		err = r.GetClient().Update(ctx, &network)
 		if err != nil {
 			log.Error(err, "unable to update network", "network", network)
 			return ctrl.Result{}, err
 		}
-		return ctrl.Result{RequeueAfter: 0}, nil
+		return ctrl.Result{}, nil
 
 	}
 	err := r.ManageOperatorLogic(network, ctx, log)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
-	return ctrl.Result{RequeueAfter: 0}, nil
+	return ctrl.Result{}, nil
 }
 
 // SetupWithManager sets up the controller with the Manager.

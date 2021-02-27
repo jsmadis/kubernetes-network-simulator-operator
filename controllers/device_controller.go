@@ -62,16 +62,16 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 
 	if ok, err := r.IsValid(&device); !ok {
 		log.Error(err, "Invalid CR of network", "device", "CR", device)
-		return ctrl.Result{RequeueAfter: 0}, err
+		return ctrl.Result{}, err
 	}
 
 	if ok := r.IsInitialized(&device); !ok {
-		err := r.GetClient().Update(context.TODO(), &device)
+		err := r.GetClient().Update(ctx, &device)
 		if err != nil {
 			log.Error(err, "unable to update instance", "device", device)
-			return ctrl.Result{RequeueAfter: 0}, err
+			return ctrl.Result{}, err
 		}
-		return ctrl.Result{RequeueAfter: 0}, nil
+		return ctrl.Result{}, nil
 	}
 
 	if util.IsBeingDeleted(&device) {
@@ -84,7 +84,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 			return ctrl.Result{}, err
 		}
 		util.RemoveFinalizer(&device, DeviceControllerName)
-		err = r.GetClient().Update(context.TODO(), &device)
+		err = r.GetClient().Update(ctx, &device)
 		if err != nil {
 			log.Error(err, "unable to update device", "device", device)
 			return ctrl.Result{}, err
@@ -133,7 +133,7 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 }
 
 func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
-	networkCrd, ok := obj.(*networksimulatorv1.Network)
+	networkCrd, ok := obj.(*networksimulatorv1.Device)
 	if !ok {
 		return false
 	}
