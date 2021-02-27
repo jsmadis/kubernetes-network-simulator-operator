@@ -22,6 +22,7 @@ import (
 	"github.com/jsmadis/kubernetes-network-simulator-operator/pkg/util"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
@@ -32,6 +33,8 @@ import (
 type DeviceReconciler struct {
 	util.ReconcilerBase
 }
+
+const DeviceControllerName = "DeviceCRD"
 
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=devices,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=network-simulator.patriot-framework.io,resources=devices/status,verbs=get;update;patch
@@ -68,9 +71,27 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{RequeueAfter: 0}, nil
 	}
 
-
-
-
+	if util.IsBeingDeleted(&device) {
+		if !util.HasFinalizer(&device, DeviceControllerName) {
+			return ctrl.Result{}, nil
+		}
+		err := r.ManageCleanUpLogic(device, ctx, log)
+		if err != nil {
+			log.Error(err, "unable to delete device", "device", device)
+			return ctrl.Result{}, err
+		}
+		util.RemoveFinalizer(&device, DeviceControllerName)
+		err = r.GetClient().Update(context.TODO(), &device)
+		if err != nil {
+			log.Error(err, "unable to update device", "device", device)
+			return ctrl.Result{}, err
+		}
+		return ctrl.Result{}, nil
+	}
+	err := r.ManageOperatorLogic(device, ctx, log)
+	if err != nil {
+		return ctrl.Result{}, err
+	}
 	return ctrl.Result{}, nil
 }
 
@@ -86,11 +107,60 @@ func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
 	if !ok {
 		return false
 	}
-	if util.HasFinalizer(networkCrd, controllerName) {
+	if util.HasFinalizer(networkCrd, DeviceControllerName) {
 		return true
 	}
-	util.AddFinalizer(networkCrd, controllerName)
+	util.AddFinalizer(networkCrd, DeviceControllerName)
 	return false
+}
+
+func (r DeviceReconciler) ManageOperatorLogic(
+	device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+	if !r.IsPodCreated(device, ctx) {
+		_, err := r.createPod(&device, ctx, log)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+	return nil
+}
+
+func (r DeviceReconciler) ManageCleanUpLogic(device networksimulatorv1.Device,
+	ctx context.Context, log logr.Logger) error {
+	pod, err := r.getPod(device, ctx)
+	if err != nil {
+		log.V(1).Info("Unable to get pod when cleaning up", "err", err)
+		return err
+	}
+	if err := r.GetClient().Delete(ctx, pod); err != nil {
+		log.Error(err, "unable to delete pod for device when cleaning up")
+		return err
+	}
+	return nil
+}
+
+func (r DeviceReconciler) IsPodCreated(device networksimulatorv1.Device, ctx context.Context) bool {
+	pod, err := r.getPod(device, ctx)
+	if err != nil {
+		return false
+	}
+	return pod.Name == device.Name + "-pod"
+}
+
+func (r DeviceReconciler) getPod(device networksimulatorv1.Device, ctx context.Context) (*v1.Pod, error) {
+	var pod *v1.Pod
+	err := r.GetClient().Get(
+		ctx,
+		types.NamespacedName{
+			Namespace: device.Namespace,
+			Name:      device.Name + "-pod",
+		},
+		pod)
+	if err != nil {
+		return nil, err
+	}
+	return pod, nil
 }
 
 func (r DeviceReconciler) createPod(
