@@ -139,7 +139,7 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 		OwnerType:    &networksimulatorv1.Device{},
 		IsController: false,
 	},
-	p)
+		p)
 	if err != nil {
 		return err
 	}
@@ -193,18 +193,18 @@ func (r DeviceReconciler) IsPodCreated(device networksimulatorv1.Device, ctx con
 }
 
 func (r DeviceReconciler) getPod(device networksimulatorv1.Device, ctx context.Context) (*v1.Pod, error) {
-	var pod *v1.Pod
+	var pod v1.Pod
 	err := r.GetClient().Get(
 		ctx,
 		types.NamespacedName{
-			Namespace: device.Namespace,
+			Namespace: device.Spec.NetworkName,
 			Name:      device.Name + "-pod",
 		},
-		pod)
+		&pod)
 	if err != nil {
 		return nil, err
 	}
-	return pod, nil
+	return &pod, nil
 }
 
 func (r DeviceReconciler) createPod(
