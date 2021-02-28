@@ -26,7 +26,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
+	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 
 	networksimulatorv1 "github.com/jsmadis/kubernetes-network-simulator-operator/api/v1"
@@ -116,11 +118,28 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 		return err
 	}
 
+	// Predicate func to ignore create and generic events
+	p := predicate.Funcs{
+		CreateFunc: func(event event.CreateEvent) bool {
+			return false
+		},
+		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+			return true
+		},
+		UpdateFunc: func(updateEvent event.UpdateEvent) bool {
+			return true
+		},
+		GenericFunc: func(genericEvent event.GenericEvent) bool {
+			return false
+		},
+	}
+
 	// Watch for pod owned by device
 	err = c.Watch(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForOwner{
 		OwnerType:    &networksimulatorv1.Device{},
-		IsController: true,
-	})
+		IsController: false,
+	},
+	p)
 	if err != nil {
 		return err
 	}
