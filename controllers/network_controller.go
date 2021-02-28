@@ -119,12 +119,6 @@ func (r NetworkReconciler) addWatcher(mgr ctrl.Manager) error {
 		return err
 	}
 
-	// Watch for changes to primary resource network
-	err = c.Watch(&source.Kind{Type: &networksimulatorv1.Network{}}, &handler.EnqueueRequestForObject{})
-	if err != nil {
-		return err
-	}
-
 	// Watch for namespaces owned by Network
 	err = c.Watch(&source.Kind{Type: &v1.Namespace{}}, &handler.EnqueueRequestForOwner{
 		OwnerType:    &networksimulatorv1.Network{},

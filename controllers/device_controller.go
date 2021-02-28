@@ -116,11 +116,6 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 		return err
 	}
 
-	// Watch for changes in device CRD
-	if err := c.Watch(&source.Kind{Type: &networksimulatorv1.Device{}}, &handler.EnqueueRequestForObject{}); err != nil {
-		return err
-	}
-
 	// Watch for pod owned by device
 	err = c.Watch(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForOwner{
 		OwnerType:    &networksimulatorv1.Device{},
