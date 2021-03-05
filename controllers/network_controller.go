@@ -96,11 +96,7 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 		return ctrl.Result{}, nil
 
 	}
-	err := r.ManageOperatorLogic(network, ctx, log)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	return r.ManageOperatorLogic(network, ctx, log)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -193,35 +189,35 @@ func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Net
 }
 
 func (r NetworkReconciler) ManageOperatorLogic(
-	network networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+	network networksimulatorv1.Network, ctx context.Context, log logr.Logger) (ctrl.Result, error) {
 
 	// is namespace created? --> create everything
 	if !r.IsNamespaceCreated(network, ctx) {
 		namespace, err := r.createNamespace(&network, ctx, log)
 		if err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
 		err = r.createNetworkPolicy(&network, namespace, ctx, log)
 		if err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
-		return nil
+		return ctrl.Result{}, nil
 	}
 	//is network policy created? --> create only network policy
 	if !r.IsNetworkPolicyCreated(network, ctx) {
 		namespace, err := r.getNamespace(network, ctx)
 		if err != nil {
 			log.Error(err, "unable to get namespace for network", "network", network)
-			return err
+			return ctrl.Result{}, err
 		}
 
 		err = r.createNetworkPolicy(&network, namespace, ctx, log)
 		if err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
 	}
 
-	return nil
+	return ctrl.Result{}, nil
 }
 
 func (r NetworkReconciler) ManageCleanUpLogic(network networksimulatorv1.Network,
