@@ -3,8 +3,10 @@ package util
 import (
 	"context"
 	"github.com/go-logr/logr"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -42,4 +44,17 @@ func (r *ReconcilerBase) GetClient() client.Client {
 
 func (r *ReconcilerBase) GetScheme() *runtime.Scheme {
 	return r.Scheme
+}
+
+// getNamespace returns namespace for given name
+func (r ReconcilerBase) GetNamespace(name string, ctx context.Context) (*v1.Namespace, error) {
+	namespacedName := types.NamespacedName{
+		Name: name,
+	}
+
+	var namespace v1.Namespace
+	if err := r.GetClient().Get(ctx, namespacedName, &namespace); err != nil {
+		return nil, err
+	}
+	return &namespace, nil
 }

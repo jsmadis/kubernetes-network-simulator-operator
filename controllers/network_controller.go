@@ -168,7 +168,7 @@ func (r *NetworkReconciler) IsInitialized(obj metav1.Object) bool {
 }
 
 func (r NetworkReconciler) IsNamespaceCreated(network networksimulatorv1.Network, ctx context.Context) bool {
-	namespace, err := r.getNamespace(network, ctx)
+	namespace, err := r.GetNamespace(network.Spec.Name, ctx)
 	if err != nil {
 		return false
 	}
@@ -189,7 +189,7 @@ func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Net
 }
 
 func (r NetworkReconciler) isNamespaceBeingDeleted(network networksimulatorv1.Network, ctx context.Context) bool {
-	namespace, err := r.getNamespace(network, ctx)
+	namespace, err := r.GetNamespace(network.Spec.Name, ctx)
 	if err != nil {
 		return false
 	}
@@ -219,7 +219,7 @@ func (r NetworkReconciler) ManageOperatorLogic(
 	}
 	//is network policy created? --> create only network policy
 	if !r.IsNetworkPolicyCreated(network, ctx) {
-		namespace, err := r.getNamespace(network, ctx)
+		namespace, err := r.GetNamespace(network.Spec.Name, ctx)
 		if err != nil {
 			log.Error(err, "unable to get namespace for network", "network", network)
 			return ctrl.Result{}, err
@@ -237,7 +237,7 @@ func (r NetworkReconciler) ManageOperatorLogic(
 func (r NetworkReconciler) ManageCleanUpLogic(network networksimulatorv1.Network,
 	ctx context.Context, log logr.Logger) error {
 
-	namespace, err := r.getNamespace(network, ctx)
+	namespace, err := r.GetNamespace(network.Spec.Name, ctx)
 	if err != nil {
 		// namespace doesn't exist, we don't need to to anything
 		return nil
@@ -248,18 +248,6 @@ func (r NetworkReconciler) ManageCleanUpLogic(network networksimulatorv1.Network
 		return err
 	}
 	return nil
-}
-
-func (r NetworkReconciler) getNamespace(network networksimulatorv1.Network, ctx context.Context) (*v1.Namespace, error) {
-	namespacedName := types.NamespacedName{
-		Name: network.Spec.Name,
-	}
-
-	var namespace v1.Namespace
-	if err := r.GetClient().Get(ctx, namespacedName, &namespace); err != nil {
-		return nil, err
-	}
-	return &namespace, nil
 }
 
 func (r *NetworkReconciler) createNamespace(
