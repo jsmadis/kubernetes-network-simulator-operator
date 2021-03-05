@@ -18,6 +18,7 @@ package controllers
 
 import (
 	"context"
+	"errors"
 	"github.com/go-logr/logr"
 	"github.com/jsmadis/kubernetes-network-simulator-operator/pkg/util"
 	v1 "k8s.io/api/core/v1"
@@ -62,7 +63,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if ok, err := r.IsValid(&device); !ok {
+	if ok, err := r.IsValid(&device, ctx); !ok {
 		log.Error(err, "Invalid CR of network", "device", "CR", device)
 		return ctrl.Result{}, err
 	}
@@ -144,6 +145,18 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 		return err
 	}
 	return nil
+}
+
+func (r *DeviceReconciler) IsValid(obj metav1.Object, ctx context.Context) (bool, error) {
+	deviceCrd, ok := obj.(*networksimulatorv1.Device)
+	if !ok {
+		return false, nil
+	}
+	_, err := r.GetNamespace(deviceCrd.Spec.NetworkName, ctx)
+	if err != nil {
+		return false, errors.New("unable to find namespace of the network")
+	}
+	return true, nil
 }
 
 func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
