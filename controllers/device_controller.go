@@ -169,6 +169,9 @@ func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
 
 func (r DeviceReconciler) ManageOperatorLogic(
 	device networksimulatorv1.Device, ctx context.Context, log logr.Logger) (ctrl.Result, error) {
+	if r.IsNamespaceBeingDeleted(device.Spec.NetworkName, ctx) {
+		return ctrl.Result{RequeueAfter: 2}, nil
+	}
 	if !r.IsPodCreated(device, ctx) {
 		_, err := r.createPod(&device, ctx, log)
 		if err != nil {
