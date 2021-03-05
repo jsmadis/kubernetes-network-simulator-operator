@@ -63,7 +63,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if ok, err := r.IsValid(&device, ctx); !ok {
+	if ok, err := r.IsValidDevice(&device, ctx); !ok {
 		log.Error(err, "Invalid CR of network", "device", "CR", device)
 		return ctrl.Result{}, err
 	}
@@ -143,7 +143,7 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 	return nil
 }
 
-func (r *DeviceReconciler) IsValid(obj metav1.Object, ctx context.Context) (bool, error) {
+func (r *DeviceReconciler) IsValidDevice(obj metav1.Object, ctx context.Context) (bool, error) {
 	deviceCrd, ok := obj.(*networksimulatorv1.Device)
 	if !ok {
 		return false, nil
