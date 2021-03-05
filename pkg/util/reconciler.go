@@ -46,7 +46,7 @@ func (r *ReconcilerBase) GetScheme() *runtime.Scheme {
 	return r.Scheme
 }
 
-// getNamespace returns namespace for given name
+// GetNamespace returns namespace for given name
 func (r ReconcilerBase) GetNamespace(name string, ctx context.Context) (*v1.Namespace, error) {
 	namespacedName := types.NamespacedName{
 		Name: name,
@@ -57,4 +57,13 @@ func (r ReconcilerBase) GetNamespace(name string, ctx context.Context) (*v1.Name
 		return nil, err
 	}
 	return &namespace, nil
+}
+
+// IstNamespaceBeingDeleted checks if the namespace is being deleted
+func (r ReconcilerBase) IsNamespaceBeingDeleted(name string, ctx context.Context) bool {
+	namespace, err := r.GetNamespace(name, ctx)
+	if err != nil {
+		return false
+	}
+	return IsBeingDeleted(namespace)
 }

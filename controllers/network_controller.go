@@ -188,20 +188,11 @@ func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Net
 	return networkPolicy.Name == network.Spec.Name+"-network-policy"
 }
 
-func (r NetworkReconciler) isNamespaceBeingDeleted(network networksimulatorv1.Network, ctx context.Context) bool {
-	namespace, err := r.GetNamespace(network.Spec.Name, ctx)
-	if err != nil {
-		return false
-	}
-	return util.IsBeingDeleted(namespace)
-
-}
-
 func (r NetworkReconciler) ManageOperatorLogic(
 	network networksimulatorv1.Network, ctx context.Context, log logr.Logger) (ctrl.Result, error) {
 
 	// requeue reconcilation when namespace is being deleted
-	if r.isNamespaceBeingDeleted(network, ctx) {
+	if r.IsNamespaceBeingDeleted(network.Spec.Name, ctx) {
 		return ctrl.Result{RequeueAfter: 2}, nil
 	}
 
