@@ -94,11 +94,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 		return ctrl.Result{}, nil
 	}
-	err := r.ManageOperatorLogic(device, ctx, log)
-	if err != nil {
-		return ctrl.Result{}, err
-	}
-	return ctrl.Result{}, nil
+	return r.ManageOperatorLogic(device, ctx, log)
 }
 
 // SetupWithManager sets up the controller with the Manager.
@@ -172,15 +168,15 @@ func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
 }
 
 func (r DeviceReconciler) ManageOperatorLogic(
-	device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+	device networksimulatorv1.Device, ctx context.Context, log logr.Logger) (ctrl.Result, error) {
 	if !r.IsPodCreated(device, ctx) {
 		_, err := r.createPod(&device, ctx, log)
 		if err != nil {
-			return err
+			return ctrl.Result{}, err
 		}
-		return nil
+		return ctrl.Result{}, nil
 	}
-	return nil
+	return ctrl.Result{}, nil
 }
 
 func (r DeviceReconciler) ManageCleanUpLogic(device networksimulatorv1.Device,
