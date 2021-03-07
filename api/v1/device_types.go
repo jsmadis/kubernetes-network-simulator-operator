@@ -43,6 +43,15 @@ type DeviceSpec struct {
 type DeviceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// Specifies if an old pod needs to be deleted
+	DeleteOldPod bool `json:"delete_old_pod"`
+
+	// Specifies name of the old pod
+	OldPodName string `json:"old_pod_name"`
+
+	// Specifies network of the old pod
+	OldPodNetwork string `json:"old_pod_namespace"`
 }
 
 //+kubebuilder:object:root=true

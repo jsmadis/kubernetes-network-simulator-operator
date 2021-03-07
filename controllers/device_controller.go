@@ -22,6 +22,7 @@ import (
 	"github.com/go-logr/logr"
 	"github.com/jsmadis/kubernetes-network-simulator-operator/pkg/util"
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -64,7 +65,7 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 	}
 
 	if ok, err := r.IsValidDevice(&device, ctx); !ok {
-		log.Error(err, "Invalid CR of network", "device", "CR", device)
+		log.Error(err, "Invalid CR of network", "device", device)
 		return ctrl.Result{}, err
 	}
 
@@ -101,11 +102,50 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 func (r *DeviceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	err := ctrl.NewControllerManagedBy(mgr).
 		For(&networksimulatorv1.Device{}).
+		WithEventFilter(DeviceEventFilter()).
 		Complete(r)
 	if err != nil {
 		return err
 	}
 	return r.addWatchers(mgr)
+}
+
+func DeviceEventFilter() predicate.Predicate {
+	return predicate.Funcs{
+		CreateFunc: func(event event.CreateEvent) bool {
+			return true
+		},
+		DeleteFunc: func(deleteEvent event.DeleteEvent) bool {
+			return true
+		},
+		UpdateFunc: func(updateEvent event.UpdateEvent) bool {
+			deviceOld, ok := updateEvent.ObjectOld.(*networksimulatorv1.Device)
+			if !ok {
+				return true
+			}
+			deviceNew, ok := updateEvent.ObjectNew.(*networksimulatorv1.Device)
+			if !ok {
+				return true
+			}
+			// Check if the device CRD was changed
+			if !equality.Semantic.DeepDerivative(deviceOld.Spec.PodTemplate, deviceNew.Spec.PodTemplate) ||
+				deviceOld.Name != deviceNew.Name || deviceOld.Spec.NetworkName != deviceNew.Spec.NetworkName {
+				if !deviceNew.Status.DeleteOldPod {
+					deviceNew.Status.DeleteOldPod = true
+					deviceNew.Status.OldPodName = deviceOld.Name
+					deviceNew.Status.OldPodNetwork = deviceNew.Spec.NetworkName
+				} else {
+					deviceNew.Status.OldPodNetwork = ""
+					deviceNew.Status.OldPodName = ""
+					deviceNew.Status.DeleteOldPod = false
+				}
+			}
+			return true
+		},
+		GenericFunc: func(genericEvent event.GenericEvent) bool {
+			return true
+		},
+	}
 }
 
 // addWatchers adds watcher for resources created by device controller
@@ -167,11 +207,49 @@ func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
 	return false
 }
 
+func (r DeviceReconciler) cleanUpOldPods(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) bool {
+	if !device.Status.DeleteOldPod {
+		return true
+	}
+
+	pod, err := r.getPod(device.Status.OldPodName, device.Status.OldPodNetwork, ctx)
+	if err != nil {
+		// Pod doesnt exist
+		return false
+	}
+	if err := r.GetClient().Delete(ctx, pod); err != nil {
+		log.V(1).Error(err, "unable to delete an old pod", "pod", pod)
+		return false
+	}
+	device.Status.OldPodNetwork = ""
+	device.Status.OldPodName = ""
+	device.Status.DeleteOldPod = false
+	log.V(1).Info("Deleted old pod")
+	return false
+}
+
+func (r DeviceReconciler) isPodBeingDeleted(device networksimulatorv1.Device, ctx context.Context) bool {
+	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
+	if err != nil {
+		return false
+	}
+	return util.IsBeingDeleted(pod)
+}
+
 func (r DeviceReconciler) ManageOperatorLogic(
 	device networksimulatorv1.Device, ctx context.Context, log logr.Logger) (ctrl.Result, error) {
 	if r.IsNamespaceBeingDeleted(device.Spec.NetworkName, ctx) {
 		return ctrl.Result{RequeueAfter: 2}, nil
 	}
+
+	if r.isPodBeingDeleted(device, ctx) {
+		log.V(1).Info("Pod is being deleted")
+		return ctrl.Result{RequeueAfter: 2}, nil
+	}
+	if ok := r.cleanUpOldPods(device, ctx, log); !ok {
+		return ctrl.Result{RequeueAfter: 5}, nil
+	}
+
 	if !r.IsPodCreated(device, ctx) {
 		_, err := r.createPod(&device, ctx, log)
 		if err != nil {
@@ -179,12 +257,13 @@ func (r DeviceReconciler) ManageOperatorLogic(
 		}
 		return ctrl.Result{}, nil
 	}
+
 	return ctrl.Result{}, nil
 }
 
 func (r DeviceReconciler) ManageCleanUpLogic(device networksimulatorv1.Device,
 	ctx context.Context, log logr.Logger) error {
-	pod, err := r.getPod(device, ctx)
+	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
 	if err != nil {
 		log.V(1).Info("Unable to get pod when cleaning up", "err", err)
 		return err
@@ -197,20 +276,20 @@ func (r DeviceReconciler) ManageCleanUpLogic(device networksimulatorv1.Device,
 }
 
 func (r DeviceReconciler) IsPodCreated(device networksimulatorv1.Device, ctx context.Context) bool {
-	pod, err := r.getPod(device, ctx)
+	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
 	if err != nil {
 		return false
 	}
 	return pod.Name == device.Name+"-pod"
 }
 
-func (r DeviceReconciler) getPod(device networksimulatorv1.Device, ctx context.Context) (*v1.Pod, error) {
+func (r DeviceReconciler) getPod(deviceName string, deviceNetworkName string, ctx context.Context) (*v1.Pod, error) {
 	var pod v1.Pod
 	err := r.GetClient().Get(
 		ctx,
 		types.NamespacedName{
-			Namespace: device.Spec.NetworkName,
-			Name:      device.Name + "-pod",
+			Namespace: deviceNetworkName,
+			Name:      deviceName + "-pod",
 		},
 		&pod)
 	if err != nil {
