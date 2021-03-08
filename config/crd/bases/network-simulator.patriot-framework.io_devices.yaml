@@ -6291,20 +6291,6 @@ spec:
             type: object
           status:
             description: DeviceStatus defines the observed state of Device
-            properties:
-              delete_old_pod:
-                description: Specifies if an old pod needs to be deleted
-                type: boolean
-              old_pod_name:
-                description: Specifies name of the old pod
-                type: string
-              old_pod_namespace:
-                description: Specifies network of the old pod
-                type: string
-            required:
-            - delete_old_pod
-            - old_pod_name
-            - old_pod_namespace
             type: object
         type: object
     served: true
