@@ -101,12 +101,6 @@ func (r *NetworkReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ct
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NetworkReconciler) SetupWithManager(mgr ctrl.Manager) error {
-	err := ctrl.NewControllerManagedBy(mgr).
-		For(&networksimulatorv1.Network{}).
-		Complete(r)
-	if err != nil {
-		return err
-	}
 	return r.addWatcher(mgr)
 }
 
@@ -131,6 +125,11 @@ func (r NetworkReconciler) addWatcher(mgr ctrl.Manager) error {
 		GenericFunc: func(genericEvent event.GenericEvent) bool {
 			return false
 		},
+	}
+
+	err = c.Watch(&source.Kind{Type: &networksimulatorv1.Network{}}, &handler.EnqueueRequestForObject{})
+	if err != nil {
+		return err
 	}
 
 	// Watch for namespaces owned by Network
@@ -188,6 +187,39 @@ func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Net
 	return networkPolicy.Name == network.Spec.Name+"-network-policy"
 }
 
+// cleanUpOldPods When device changes the network we need to delete pod that is in the old network
+func (r NetworkReconciler) cleanUpOldPods(
+	network networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+	var podList v1.PodList
+	err := r.GetClient().List(
+		ctx,
+		&podList,
+		client.InNamespace(network.Spec.Name),
+		client.MatchingLabels{"Patriot": "device"})
+	if err != nil {
+		return err
+	}
+
+	for _, pod := range podList.Items {
+		for _, owner := range pod.OwnerReferences {
+			if owner.Kind == "Device" {
+				var device networksimulatorv1.Device
+				err := r.GetClient().Get(ctx, types.NamespacedName{Name: owner.Name}, &device)
+				if err != nil {
+					return err
+				}
+				if device.Spec.NetworkName != network.Spec.Name {
+					if err := r.GetClient().Delete(ctx, &pod); err != nil {
+						return err
+					}
+					log.Info("Deleting forgotten pod", "pod", pod)
+				}
+			}
+		}
+	}
+	return nil
+}
+
 func (r NetworkReconciler) ManageOperatorLogic(
 	network networksimulatorv1.Network, ctx context.Context, log logr.Logger) (ctrl.Result, error) {
 
@@ -208,6 +240,12 @@ func (r NetworkReconciler) ManageOperatorLogic(
 		}
 		return ctrl.Result{}, nil
 	}
+
+	// clean up pods
+	if err := r.cleanUpOldPods(network, ctx, log); err != nil {
+		log.V(1).Error(err, "error in the clean up old")
+	}
+
 	//is network policy created? --> create only network policy
 	if !r.IsNetworkPolicyCreated(network, ctx) {
 		namespace, err := r.GetNamespace(network.Spec.Name, ctx)

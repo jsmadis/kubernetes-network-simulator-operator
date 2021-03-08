@@ -278,6 +278,8 @@ func (r DeviceReconciler) createPod(
 		},
 		Spec: *device.Spec.PodTemplate.Spec.DeepCopy(),
 	}
+	pod.ObjectMeta.Labels["Patriot-Device"] = device.Name
+	pod.ObjectMeta.Labels["Patriot"] = "device"
 	if err := ctrl.SetControllerReference(device, pod, r.Scheme); err != nil {
 		log.V(1).Info("Failed to set controller reference for pod", "pod", pod)
 		return nil, err
