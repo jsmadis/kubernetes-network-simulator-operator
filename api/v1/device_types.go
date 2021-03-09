@@ -43,6 +43,12 @@ type DeviceSpec struct {
 type DeviceStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// Name of the network where device is deployed
+	NetworkName string `json:"network_name"`
+
+	// Name of the device in the network
+	Name string `json:"name"`
 }
 
 //+kubebuilder:object:root=true

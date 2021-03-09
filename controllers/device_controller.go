@@ -169,7 +169,7 @@ func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
 }
 
 func (r DeviceReconciler) isPodBeingDeleted(device networksimulatorv1.Device, ctx context.Context) bool {
-	pod, err := r.getPod(device, ctx)
+	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
 	if err != nil {
 		return false
 	}
@@ -177,11 +177,54 @@ func (r DeviceReconciler) isPodBeingDeleted(device networksimulatorv1.Device, ct
 }
 
 func (r DeviceReconciler) isPodOutDated(device networksimulatorv1.Device, ctx context.Context) bool {
-	pod, err := r.getPod(device, ctx)
+	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
 	if err != nil {
 		return false
 	}
 	return !equality.Semantic.DeepDerivative(device.Spec.PodTemplate.Spec, pod.Spec)
+}
+
+func (r DeviceReconciler) updateDeviceStatus(
+	networkName string, name string, device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+	device.Status.NetworkName = networkName
+	device.Status.Name = name
+	if err := r.GetClient().Status().Update(ctx, &device);  err != nil {
+		log.Error(err, "unable to update status when old pod was deleted")
+		return err
+	}
+	return nil
+}
+
+func (r DeviceReconciler) deleteOldPod(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+	if device.Spec.NetworkName == device.Status.NetworkName && device.Name == device.Status.Name {
+		return nil
+	}
+	if device.Status.Name == "" || device.Status.NetworkName == "" {
+		return nil
+	}
+
+	pod, err := r.getPod(device.Status.Name, device.Status.NetworkName, ctx)
+	if err != nil {
+		log.V(1).Info("Expected to not found pod", "err", err)
+		// Pod doesn't exist so we need to remove old statuses
+		if err2 := r.updateDeviceStatus("", "", device, ctx, log);  err2 != nil {
+			log.Error(err2, "unable to clean status from old network and name that doesn't have pod")
+			return err2
+		}
+		return nil
+	}
+
+	if err := r.GetClient().Delete(ctx, pod); err != nil {
+		log.Error(err, "unable to delete old pod", "pod", pod)
+		return err
+	}
+
+	if err := r.updateDeviceStatus("", "", device, ctx, log); err != nil {
+		return err
+	}
+
+	log.Info("Old pod successfully deleted", "pod", pod)
+	return nil
 }
 
 func (r DeviceReconciler) ManageOperatorLogic(
@@ -193,6 +236,10 @@ func (r DeviceReconciler) ManageOperatorLogic(
 
 	if r.isPodBeingDeleted(device, ctx) {
 		log.V(1).Info("Pod is being deleted")
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	if err := r.deleteOldPod(device, ctx, log); err != nil {
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 
@@ -217,7 +264,7 @@ func (r DeviceReconciler) ManageOperatorLogic(
 
 func (r DeviceReconciler) ManageCleanUpLogic(device networksimulatorv1.Device,
 	ctx context.Context, log logr.Logger) error {
-	pod, err := r.getPod(device, ctx)
+	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
 	if err != nil {
 		log.V(1).Info("Unable to get pod when cleaning up", "err", err)
 		return err
@@ -230,20 +277,20 @@ func (r DeviceReconciler) ManageCleanUpLogic(device networksimulatorv1.Device,
 }
 
 func (r DeviceReconciler) IsPodCreated(device networksimulatorv1.Device, ctx context.Context) bool {
-	pod, err := r.getPod(device, ctx)
+	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
 	if err != nil {
 		return false
 	}
 	return pod.Name == device.Name+"-pod"
 }
 
-func (r DeviceReconciler) getPod(device networksimulatorv1.Device, ctx context.Context) (*v1.Pod, error) {
+func (r DeviceReconciler) getPod( name string, namespace string, ctx context.Context) (*v1.Pod, error) {
 	var pod v1.Pod
 	err := r.GetClient().Get(
 		ctx,
 		types.NamespacedName{
-			Namespace: device.Spec.NetworkName,
-			Name:      device.Name + "-pod",
+			Namespace: namespace,
+			Name:      name + "-pod",
 		},
 		&pod)
 	if err != nil {
@@ -253,7 +300,7 @@ func (r DeviceReconciler) getPod(device networksimulatorv1.Device, ctx context.C
 }
 
 func (r DeviceReconciler) deletePod(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
-	pod, err := r.getPod(device, ctx)
+	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
 	if err != nil {
 		log.Error(err, "unable to find outdated pod to delete")
 		return err
@@ -290,6 +337,11 @@ func (r DeviceReconciler) createPod(
 		return nil, err
 	}
 	log.V(1).Info("Created pod")
+
+	// update device status
+	if err := r.updateDeviceStatus(device.Spec.NetworkName, device.Name, *device, ctx, log); err != nil {
+		log.Error(err, "unable to update status for device", "device", device)
+	}
 
 	return pod, nil
 }
