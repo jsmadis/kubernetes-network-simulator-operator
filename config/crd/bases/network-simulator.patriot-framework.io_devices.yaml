@@ -6291,6 +6291,16 @@ spec:
             type: object
           status:
             description: DeviceStatus defines the observed state of Device
+            properties:
+              name:
+                description: Name of the device in the network
+                type: string
+              network_name:
+                description: Name of the network where device is deployed
+                type: string
+            required:
+            - name
+            - network_name
             type: object
         type: object
     served: true
