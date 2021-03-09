@@ -44,6 +44,15 @@ type NetworkSpec struct {
 type NetworkStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// Name of the network
+	Name string `json:"name"`
+
+	// Allow traffic into network
+	AllowIngressTraffic bool `json:"AllowIngressTraffic"`
+
+	// Allow traffic from network
+	AllowEgressTraffic bool `json:"AllowEgressTraffic"`
 }
 
 //+kubebuilder:object:root=true

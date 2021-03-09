@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"time"
 )
 
 // NetworkReconciler reconciles a Network object
@@ -174,7 +175,8 @@ func (r NetworkReconciler) IsNamespaceCreated(network networksimulatorv1.Network
 	return namespace.Name == network.Spec.Name
 }
 
-func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Network, ctx context.Context) bool {
+func (r NetworkReconciler) getNetworkPolicy(
+	network *networksimulatorv1.Network, ctx context.Context) (*v12.NetworkPolicy, error) {
 	namespacedName := types.NamespacedName{
 		Namespace: network.Spec.Name,
 		Name:      network.Spec.Name + "-network-policy",
@@ -182,9 +184,98 @@ func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Net
 
 	var networkPolicy v12.NetworkPolicy
 	if err := r.GetClient().Get(ctx, namespacedName, &networkPolicy); err != nil {
+		return nil, err
+	}
+	return &networkPolicy, nil
+
+}
+
+func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Network, ctx context.Context) bool {
+	networkPolicy, err := r.getNetworkPolicy(&network, ctx)
+	if err != nil {
 		return false
 	}
 	return networkPolicy.Name == network.Spec.Name+"-network-policy"
+}
+
+func (r NetworkReconciler) updateNetworkStatus(
+	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+	if err := r.GetClient().Status().Update(ctx, network); err != nil {
+		log.Error(err, "unable to update network status", "network", network)
+		return err
+	}
+	return nil
+}
+
+func (r NetworkReconciler) deleteOldNamespace(
+	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) bool {
+	if network.Spec.Name == network.Status.Name {
+		return true
+	}
+	if network.Status.Name == "" {
+		return true
+	}
+	namespace, err := r.GetNamespace(network.Status.Name, ctx)
+	if err != nil {
+		log.V(1).Info("Expected namespace not found", "err", err)
+		// Namespace is already deleted
+		network.Status.Name = network.Spec.Name
+		if err := r.updateNetworkStatus(network, ctx, log); err != nil {
+			log.Error(err, "unable to update status with correct network name")
+			return false
+		}
+		return false
+	}
+
+	if err := r.GetClient().Delete(ctx, namespace); err != nil {
+		log.Error(err, "unable to delete forgotten old namespace", "namespace", namespace)
+		return false
+	}
+
+	network.Status.Name = network.Spec.Name
+	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
+		log.Error(err, "unable to update status with correct network name after old namespace was deleted")
+		return false
+	}
+
+	log.V(1).Info("Old namespace deleted", "namespace", namespace)
+	return false
+}
+
+func (r NetworkReconciler) deleteOutdatedNetworkPolicy(
+	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) bool {
+	if network.Spec.AllowIngressTraffic == network.Status.AllowIngressTraffic &&
+		network.Spec.AllowEgressTraffic == network.Status.AllowEgressTraffic {
+		return true
+	}
+	networkPolicy, err := r.getNetworkPolicy(network, ctx)
+	if err != nil {
+		log.V(1).Info("Expected network policy not found", "err", err)
+		// Network policy already deleted
+		network.Status.AllowEgressTraffic = network.Spec.AllowEgressTraffic
+		network.Status.AllowIngressTraffic = network.Spec.AllowIngressTraffic
+		if err := r.updateNetworkStatus(network, ctx, log); err != nil {
+			log.Error(err, "unable to update network status in deleteOutdatedNetworkPolicy")
+			return false
+		}
+		return false
+	}
+
+	if err := r.GetClient().Delete(ctx, networkPolicy); err != nil {
+		log.Error(err, "unable to delete outdated network policy")
+		return false
+	}
+
+	log.V(1).Info("Deleted outdated network policy", "networkPolicy", networkPolicy)
+	return false
+}
+
+func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulatorv1.Network, ctx context.Context) bool {
+	networkPolicy, err := r.getNetworkPolicy(network, ctx)
+	if err != nil {
+		return false
+	}
+	return util.IsBeingDeleted(networkPolicy)
 }
 
 func (r NetworkReconciler) ManageOperatorLogic(
@@ -192,7 +283,21 @@ func (r NetworkReconciler) ManageOperatorLogic(
 
 	// requeue reconcilation when namespace is being deleted
 	if r.IsNamespaceBeingDeleted(network.Spec.Name, ctx) {
-		return ctrl.Result{RequeueAfter: 2}, nil
+		log.V(1).Info("Namespace is being deleted")
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	if r.isNetworkPolicyBeingDeleted(&network, ctx) {
+		log.V(1).Info("Network policy is being deleted")
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	if !r.deleteOldNamespace(&network, ctx, log) {
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	}
+
+	if !r.deleteOutdatedNetworkPolicy(&network, ctx, log) {
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 
 	// is namespace created? --> create everything
@@ -261,6 +366,11 @@ func (r *NetworkReconciler) createNamespace(
 		return nil, err
 	}
 	log.V(1).Info("Created namespace", "namespace", namespace)
+
+	network.Status.Name = network.Spec.Name
+	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
+		return nil, err
+	}
 	return namespace, nil
 }
 
@@ -308,5 +418,11 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 	}
 
 	log.V(1).Info("Created network policy", "network-policy", networkPolicy)
+
+	network.Status.AllowEgressTraffic = network.Spec.AllowEgressTraffic
+	network.Status.AllowIngressTraffic = network.Spec.AllowIngressTraffic
+	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
+		return err
+	}
 	return nil
 }

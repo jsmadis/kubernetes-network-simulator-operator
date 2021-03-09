@@ -205,7 +205,7 @@ func (r DeviceReconciler) deleteOldPod(device *networksimulatorv1.Device, ctx co
 
 	pod, err := r.getPod(device.Status.Name, device.Status.NetworkName, ctx)
 	if err != nil {
-		log.V(1).Info("Expected to not found pod", "err", err)
+		log.V(1).Info("Expected pod not found", "err", err)
 		// Pod doesn't exist so we need to remove old statuses
 		if err2 := r.updateDeviceStatus("", "", device, ctx, log); err2 != nil {
 			log.Error(err2, "unable to clean status from old network and name that doesn't have pod")
