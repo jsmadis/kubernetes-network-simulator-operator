@@ -195,15 +195,19 @@ func (r DeviceReconciler) isPodOutDated(device networksimulatorv1.Device, ctx co
 	return !equality.Semantic.DeepDerivative(device.Spec.PodTemplate.Spec, pod.Spec)
 }
 
+func (r DeviceReconciler) isNetworkPolicyCreated(device networksimulatorv1.Device, ctx context.Context) bool {
+	networkPolicy, err := r.GetNetworkPolicy(device.Name, device.Spec.NetworkName, ctx)
+	if err != nil {
+		return false
+	}
+	return networkPolicy.Name == device.Name+"-network-policy"
+}
+
 func (r DeviceReconciler) shouldBeNetworkPolicyCreated(device networksimulatorv1.Device, ctx context.Context) bool {
 	if len(device.Spec.DeviceEgressPorts) == 0 && len(device.Spec.DeviceIngressPorts) == 0 {
 		return false
 	}
-	networkPolicy, err := r.GetNetworkPolicy(device.Name, device.Spec.NetworkName, ctx)
-	if err != nil {
-		return true
-	}
-	return networkPolicy.Name != device.Name+"-network-policy"
+	return !r.isNetworkPolicyCreated(device, ctx)
 }
 
 func (r DeviceReconciler) updateDeviceStatus(
@@ -293,16 +297,32 @@ func (r DeviceReconciler) ManageOperatorLogic(
 
 func (r DeviceReconciler) ManageCleanUpLogic(device networksimulatorv1.Device,
 	ctx context.Context, log logr.Logger) error {
-	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
-	if err != nil {
-		log.V(1).Info("Unable to get pod when cleaning up", "err", err)
-		return err
+	if r.IsPodCreated(device, ctx) {
+		if err := r.deletePod(device, ctx, log); err != nil {
+			return err
+		}
 	}
-	if err := r.GetClient().Delete(ctx, pod); err != nil {
-		log.Error(err, "unable to delete pod for device when cleaning up")
-		return err
+	if r.isNetworkPolicyCreated(device, ctx) {
+		if err := r.deleteNetworkPolicy(device, ctx, log); err != nil {
+			return err
+		}
 	}
 	return nil
+}
+
+func (r DeviceReconciler) deleteNetworkPolicy(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+	networkPolicy, err := r.GetNetworkPolicy(device.Name, device.Spec.NetworkName, ctx)
+	if err != nil {
+		log.V(1).Info("Unable to get network policy when cleaning up", "err", err)
+		return err
+	}
+	if err := r.GetClient().Delete(ctx, networkPolicy); err != nil {
+		log.Error(err, "unable to delete network policy for device when cleaning up")
+		return err
+	}
+	log.V(1).Info("Network policy for the device successfully deleted", "network-policy", networkPolicy)
+	return nil
+
 }
 
 func (r DeviceReconciler) IsPodCreated(device networksimulatorv1.Device, ctx context.Context) bool {
@@ -331,11 +351,11 @@ func (r DeviceReconciler) getPod(name string, namespace string, ctx context.Cont
 func (r DeviceReconciler) deletePod(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
 	pod, err := r.getPod(device.Name, device.Spec.NetworkName, ctx)
 	if err != nil {
-		log.Error(err, "unable to find outdated pod to delete")
+		log.Error(err, "unable to find pod to delete")
 		return err
 	}
 	if err := r.GetClient().Delete(ctx, pod); err != nil {
-		log.Error(err, "unable to delete outdated pod", "pod", pod)
+		log.Error(err, "unable to delete pod", "pod", pod)
 		return err
 	}
 	log.V(1).Info("Pod deleted", "pod", pod)
