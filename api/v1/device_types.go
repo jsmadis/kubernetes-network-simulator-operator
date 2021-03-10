@@ -18,8 +18,21 @@ package v1
 
 import (
 	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
+
+// DevicePorts specifies Device, network and ports used in the network policy
+type DevicePorts struct {
+	// name of the device
+	DeviceName string `json:"device_name"`
+
+	// name of the network
+	NetworkName string `json:"network_name"`
+
+	// network policy pods
+	NetworkPolicyPorts []v12.NetworkPolicyPort `json:"network_policy_ports"`
+}
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
@@ -35,8 +48,13 @@ type DeviceSpec struct {
 	// Specifies the pod that contains container of wanted device
 	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
 
-	// Specifies if the device is active
-	Active bool `json:"active"`
+	// Device ingress ports, specifies devices from which can this device receive connection
+	// +optional
+	DeviceIngressPorts []DevicePorts `json:"device_ingress_ports"`
+
+	// Device egress ports, specifies devices to which can this device create connection
+	// +optional
+	DeviceEgressPorts []DevicePorts `json:"device_egress_ports"`
 }
 
 // DeviceStatus defines the observed state of Device

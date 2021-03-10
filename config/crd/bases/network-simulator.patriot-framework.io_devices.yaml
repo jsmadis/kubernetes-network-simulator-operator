@@ -36,9 +36,90 @@ spec:
           spec:
             description: DeviceSpec defines the desired state of Device
             properties:
-              active:
-                description: Specifies if the device is active
-                type: boolean
+              device_egress_ports:
+                description: Device egress ports, specifies devices to which can this
+                  device create connection
+                items:
+                  description: DevicePorts specifies Device, network and ports used
+                    in the network policy
+                  properties:
+                    device_name:
+                      description: name of the device
+                      type: string
+                    network_name:
+                      description: name of the network
+                      type: string
+                    network_policy_ports:
+                      description: network policy pods
+                      items:
+                        description: NetworkPolicyPort describes a port to allow traffic
+                          on
+                        properties:
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: The port on the given protocol. This can
+                              either be a numerical or named port on a pod. If this
+                              field is not provided, this matches all port names and
+                              numbers.
+                            x-kubernetes-int-or-string: true
+                          protocol:
+                            default: TCP
+                            description: The protocol (TCP, UDP, or SCTP) which traffic
+                              must match. If not specified, this field defaults to
+                              TCP.
+                            type: string
+                        type: object
+                      type: array
+                  required:
+                  - device_name
+                  - network_name
+                  - network_policy_ports
+                  type: object
+                type: array
+              device_ingress_ports:
+                description: Device ingress ports, specifies devices from which can
+                  this device receive connection
+                items:
+                  description: DevicePorts specifies Device, network and ports used
+                    in the network policy
+                  properties:
+                    device_name:
+                      description: name of the device
+                      type: string
+                    network_name:
+                      description: name of the network
+                      type: string
+                    network_policy_ports:
+                      description: network policy pods
+                      items:
+                        description: NetworkPolicyPort describes a port to allow traffic
+                          on
+                        properties:
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: The port on the given protocol. This can
+                              either be a numerical or named port on a pod. If this
+                              field is not provided, this matches all port names and
+                              numbers.
+                            x-kubernetes-int-or-string: true
+                          protocol:
+                            default: TCP
+                            description: The protocol (TCP, UDP, or SCTP) which traffic
+                              must match. If not specified, this field defaults to
+                              TCP.
+                            type: string
+                        type: object
+                      type: array
+                  required:
+                  - device_name
+                  - network_name
+                  - network_policy_ports
+                  type: object
+                type: array
               network_name:
                 description: Name of the network where to deploy device
                 type: string
@@ -6285,7 +6366,6 @@ spec:
                     type: object
                 type: object
             required:
-            - active
             - network_name
             - podTemplate
             type: object

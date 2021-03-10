@@ -24,7 +24,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	v12 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
@@ -175,23 +174,8 @@ func (r NetworkReconciler) IsNamespaceCreated(network networksimulatorv1.Network
 	return namespace.Name == network.Spec.Name
 }
 
-func (r NetworkReconciler) getNetworkPolicy(
-	network *networksimulatorv1.Network, ctx context.Context) (*v12.NetworkPolicy, error) {
-	namespacedName := types.NamespacedName{
-		Namespace: network.Spec.Name,
-		Name:      network.Spec.Name + "-network-policy",
-	}
-
-	var networkPolicy v12.NetworkPolicy
-	if err := r.GetClient().Get(ctx, namespacedName, &networkPolicy); err != nil {
-		return nil, err
-	}
-	return &networkPolicy, nil
-
-}
-
 func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Network, ctx context.Context) bool {
-	networkPolicy, err := r.getNetworkPolicy(&network, ctx)
+	networkPolicy, err := r.GetNetworkPolicy(network.Spec.Name, network.Spec.Name, ctx)
 	if err != nil {
 		return false
 	}
@@ -248,7 +232,7 @@ func (r NetworkReconciler) deleteOutdatedNetworkPolicy(
 		network.Spec.AllowEgressTraffic == network.Status.AllowEgressTraffic {
 		return true
 	}
-	networkPolicy, err := r.getNetworkPolicy(network, ctx)
+	networkPolicy, err := r.GetNetworkPolicy(network.Spec.Name, network.Spec.Name, ctx)
 	if err != nil {
 		log.V(1).Info("Expected network policy not found", "err", err)
 		// Network policy already deleted
@@ -271,7 +255,7 @@ func (r NetworkReconciler) deleteOutdatedNetworkPolicy(
 }
 
 func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulatorv1.Network, ctx context.Context) bool {
-	networkPolicy, err := r.getNetworkPolicy(network, ctx)
+	networkPolicy, err := r.GetNetworkPolicy(network.Spec.Name, network.Spec.Name, ctx)
 	if err != nil {
 		return false
 	}
@@ -361,6 +345,8 @@ func (r *NetworkReconciler) createNamespace(
 		log.Error(err, "Unable to set controller reference to namespace")
 		return nil, err
 	}
+	namespace.ObjectMeta.Labels["Patriot-Network"] = network.Spec.Name
+
 	if err := r.GetClient().Create(ctx, namespace); err != nil {
 		log.Error(err, "Unable to create Namespace for network", "namespace", namespace)
 		return nil, err

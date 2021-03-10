@@ -4,6 +4,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	v1 "k8s.io/api/core/v1"
+	v12 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -59,11 +60,27 @@ func (r ReconcilerBase) GetNamespace(name string, ctx context.Context) (*v1.Name
 	return &namespace, nil
 }
 
-// IstNamespaceBeingDeleted checks if the namespace is being deleted
+// IsNamespaceBeingDeleted checks if the namespace is being deleted
 func (r ReconcilerBase) IsNamespaceBeingDeleted(name string, ctx context.Context) bool {
 	namespace, err := r.GetNamespace(name, ctx)
 	if err != nil {
 		return false
 	}
 	return IsBeingDeleted(namespace)
+}
+
+// GetNetworkPolicy returns network policy for given name and namespace
+// We are adding '-network-policy' suffix to the network policy name
+func (r ReconcilerBase) GetNetworkPolicy(name string, namespace string, ctx context.Context) (*v12.NetworkPolicy, error) {
+	namespacedName := types.NamespacedName{
+		Namespace: namespace,
+		Name:      name + "-network-policy",
+	}
+
+	var networkPolicy v12.NetworkPolicy
+	if err := r.GetClient().Get(ctx, namespacedName, &networkPolicy); err != nil {
+		return nil, err
+	}
+	return &networkPolicy, nil
+
 }

@@ -1,9 +1,15 @@
 apiVersion: network-simulator.patriot-framework.io/v1
 kind: Device
 metadata:
-  name: device-sample
+  name: device-sample-network-policy
 spec:
-  network_name: network-example
+  network_name: network-example1
+  device_ingress_ports:
+    - device_name: device-sample
+      network_name: network-example1
+      network_policy_ports:
+        - protocol: TCP
+          port: 8080
   podTemplate:
     metadata:
       labels:
