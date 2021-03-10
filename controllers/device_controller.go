@@ -142,6 +142,16 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 	if err != nil {
 		return err
 	}
+
+	// Watch for network policies owned by Device
+	err = c.Watch(&source.Kind{Type: &v12.NetworkPolicy{}}, &handler.EnqueueRequestForOwner{
+		OwnerType:    &networksimulatorv1.Device{},
+		IsController: false,
+	},
+		p)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
