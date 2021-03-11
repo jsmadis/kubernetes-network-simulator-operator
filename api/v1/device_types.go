@@ -94,3 +94,11 @@ type DeviceList struct {
 func init() {
 	SchemeBuilder.Register(&Device{}, &DeviceList{})
 }
+
+func (in *Device) PodName() string {
+	return in.Name + "-pod"
+}
+
+func (in Device) NetworkName() string {
+	return in.Name + "-network-policy"
+}
