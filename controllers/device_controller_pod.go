@@ -161,7 +161,7 @@ func (r DeviceReconciler) deletePod(device networksimulatorv1.Device, ctx contex
 		log.Error(err, "unable to delete pod", "pod", pod)
 		return err
 	}
-	log.V(1).Info("Pod deleted", "pod", pod)
+	log.V(1).Info("Deleted pod", "pod", pod)
 	return nil
 }
 

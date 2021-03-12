@@ -74,7 +74,7 @@ func (r DeviceReconciler) deleteNetworkPolicy(device networksimulatorv1.Device, 
 		log.Error(err, "unable to delete network policy for device when cleaning up")
 		return err
 	}
-	log.V(1).Info("Network policy for the device successfully deleted", "network-policy", networkPolicy)
+	log.V(1).Info("Deleted network policy for the device", "network-policy", networkPolicy)
 	return nil
 
 }

@@ -132,7 +132,7 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 	// Watch for pod owned by device
 	err = c.Watch(&source.Kind{Type: &v1.Pod{}}, &handler.EnqueueRequestForOwner{
 		OwnerType:    &networksimulatorv1.Device{},
-		IsController: false,
+		IsController: true,
 	},
 		p)
 	if err != nil {
@@ -142,7 +142,7 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 	// Watch for network policies owned by Device
 	err = c.Watch(&source.Kind{Type: &v12.NetworkPolicy{}}, &handler.EnqueueRequestForOwner{
 		OwnerType:    &networksimulatorv1.Device{},
-		IsController: false,
+		IsController: true,
 	},
 		p)
 	if err != nil {
