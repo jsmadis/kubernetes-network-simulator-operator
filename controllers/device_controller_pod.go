@@ -29,6 +29,7 @@ import (
 	"time"
 )
 
+// ManageDevicePodLogic manages all logic for device controller about pod, creating, updating deleting...
 func (r DeviceReconciler) ManageDevicePodLogic(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) (ctrl.Result, error, bool) {
 	if r.IsNamespaceBeingDeleted(device.Spec.NetworkName, ctx) {
 		log.V(1).Info("Namespace is being deleted")
@@ -44,7 +45,7 @@ func (r DeviceReconciler) ManageDevicePodLogic(device networksimulatorv1.Device,
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil, false
 	}
 
-	if !r.IsPodCreated(device, ctx) {
+	if !r.isPodCreated(device, ctx) {
 		_, err := r.createPod(&device, ctx, log)
 		if err != nil {
 			return ctrl.Result{}, err, false
@@ -62,7 +63,26 @@ func (r DeviceReconciler) ManageDevicePodLogic(device networksimulatorv1.Device,
 	return ctrl.Result{}, nil, true
 }
 
+// ManageCleanUpPodLogic cleans resources related to pod
+func (r DeviceReconciler) ManageCleanUpPodLogic(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+	if r.isPodCreated(device, ctx) {
+		if err := r.deletePod(device, ctx, log); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
+// checks if the pod exist for the given device
+func (r DeviceReconciler) isPodCreated(device networksimulatorv1.Device, ctx context.Context) bool {
+	pod, err := r.getPod(device.PodName(), device.Spec.NetworkName, ctx)
+	if err != nil {
+		return false
+	}
+	return pod.Name == device.PodName()
+}
+
+// isPodBeingDeleted checks if the pod is being deleted
 func (r DeviceReconciler) isPodBeingDeleted(device networksimulatorv1.Device, ctx context.Context) bool {
 	pod, err := r.getPod(device.PodName(), device.Spec.NetworkName, ctx)
 	if err != nil {
@@ -71,6 +91,7 @@ func (r DeviceReconciler) isPodBeingDeleted(device networksimulatorv1.Device, ct
 	return util.IsBeingDeleted(pod)
 }
 
+// isPodOutDated checks if the pod corresponds to the device
 func (r DeviceReconciler) isPodOutDated(device networksimulatorv1.Device, ctx context.Context) bool {
 	pod, err := r.getPod(device.PodName(), device.Spec.NetworkName, ctx)
 	if err != nil {
@@ -79,6 +100,24 @@ func (r DeviceReconciler) isPodOutDated(device networksimulatorv1.Device, ctx co
 	return !equality.Semantic.DeepDerivative(device.Spec.PodTemplate.Spec, pod.Spec)
 }
 
+// getPod returns pod for given name and namespace
+func (r DeviceReconciler) getPod(name string, namespace string, ctx context.Context) (*v1.Pod, error) {
+	var pod v1.Pod
+	err := r.GetClient().Get(
+		ctx,
+		types.NamespacedName{
+			Namespace: namespace,
+			Name:      name,
+		},
+		&pod)
+	if err != nil {
+		return nil, err
+	}
+	return &pod, nil
+}
+
+// deleteOldPod when device is moved to another network we need to delete pod from old network
+// This function deletes pod from previous network
 func (r DeviceReconciler) deleteOldPod(device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) bool {
 	if device.Spec.NetworkName == device.Status.NetworkName && device.Name == device.Status.Name {
 		return true
@@ -111,30 +150,7 @@ func (r DeviceReconciler) deleteOldPod(device *networksimulatorv1.Device, ctx co
 	return false
 }
 
-func (r DeviceReconciler) IsPodCreated(device networksimulatorv1.Device, ctx context.Context) bool {
-	pod, err := r.getPod(device.PodName(), device.Spec.NetworkName, ctx)
-	if err != nil {
-		return false
-	}
-	return pod.Name == device.PodName()
-}
-
-
-func (r DeviceReconciler) getPod(name string, namespace string, ctx context.Context) (*v1.Pod, error) {
-	var pod v1.Pod
-	err := r.GetClient().Get(
-		ctx,
-		types.NamespacedName{
-			Namespace: namespace,
-			Name:      name,
-		},
-		&pod)
-	if err != nil {
-		return nil, err
-	}
-	return &pod, nil
-}
-
+// deletePod deletes pod that was created for the device
 func (r DeviceReconciler) deletePod(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
 	pod, err := r.getPod(device.PodName(), device.Spec.NetworkName, ctx)
 	if err != nil {
@@ -149,6 +165,7 @@ func (r DeviceReconciler) deletePod(device networksimulatorv1.Device, ctx contex
 	return nil
 }
 
+// createPod creates pod for device
 func (r DeviceReconciler) createPod(
 	device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) (*v1.Pod, error) {
 	name := device.PodName()

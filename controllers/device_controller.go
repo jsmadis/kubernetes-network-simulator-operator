@@ -221,10 +221,8 @@ func (r DeviceReconciler) ManageOperatorLogic(
 
 func (r DeviceReconciler) ManageCleanUpLogic(device networksimulatorv1.Device,
 	ctx context.Context, log logr.Logger) error {
-	if r.IsPodCreated(device, ctx) {
-		if err := r.deletePod(device, ctx, log); err != nil {
-			return err
-		}
+	if err := r.ManageCleanUpPodLogic(device, ctx, log); err != nil {
+		return err
 	}
 	if r.isNetworkPolicyCreated(device, ctx) {
 		if err := r.deleteNetworkPolicy(device, ctx, log); err != nil {
