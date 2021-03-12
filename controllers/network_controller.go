@@ -166,14 +166,6 @@ func (r *NetworkReconciler) IsInitialized(obj metav1.Object) bool {
 	return false
 }
 
-func (r NetworkReconciler) IsNamespaceCreated(network networksimulatorv1.Network, ctx context.Context) bool {
-	namespace, err := r.GetNamespace(network.Spec.Name, ctx)
-	if err != nil {
-		return false
-	}
-	return namespace.Name == network.Spec.Name
-}
-
 func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Network, ctx context.Context) bool {
 	networkPolicy, err := r.GetNetworkPolicy(network.NetworkName(), network.Spec.Name, ctx)
 	if err != nil {
@@ -189,41 +181,6 @@ func (r NetworkReconciler) updateNetworkStatus(
 		return err
 	}
 	return nil
-}
-
-func (r NetworkReconciler) deleteOldNamespace(
-	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) bool {
-	if network.Spec.Name == network.Status.Name {
-		return true
-	}
-	if network.Status.Name == "" {
-		return true
-	}
-	namespace, err := r.GetNamespace(network.Status.Name, ctx)
-	if err != nil {
-		log.V(1).Info("Expected namespace not found", "err", err)
-		// Namespace is already deleted
-		network.Status.Name = network.Spec.Name
-		if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-			log.Error(err, "unable to update status with correct network name")
-			return false
-		}
-		return false
-	}
-
-	if err := r.GetClient().Delete(ctx, namespace); err != nil {
-		log.Error(err, "unable to delete forgotten old namespace", "namespace", namespace)
-		return false
-	}
-
-	network.Status.Name = network.Spec.Name
-	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-		log.Error(err, "unable to update status with correct network name after old namespace was deleted")
-		return false
-	}
-
-	log.V(1).Info("Old namespace deleted", "namespace", namespace)
-	return false
 }
 
 func (r NetworkReconciler) deleteOutdatedNetworkPolicy(
@@ -262,13 +219,12 @@ func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulator
 	return util.IsBeingDeleted(networkPolicy)
 }
 
+// ManageOperatorLogic manages operator logic for the network CRD
 func (r NetworkReconciler) ManageOperatorLogic(
 	network networksimulatorv1.Network, ctx context.Context, log logr.Logger) (ctrl.Result, error) {
 
-	// requeue reconcilation when namespace is being deleted
-	if r.IsNamespaceBeingDeleted(network.Spec.Name, ctx) {
-		log.V(1).Info("Namespace is being deleted")
-		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
+	if result, err, ok := r.ManageNamespaceLogic(network, ctx, log); !ok {
+		return result, err
 	}
 
 	if r.isNetworkPolicyBeingDeleted(&network, ctx) {
@@ -276,25 +232,8 @@ func (r NetworkReconciler) ManageOperatorLogic(
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
 	}
 
-	if !r.deleteOldNamespace(&network, ctx, log) {
-		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-
 	if !r.deleteOutdatedNetworkPolicy(&network, ctx, log) {
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-
-	// is namespace created? --> create everything
-	if !r.IsNamespaceCreated(network, ctx) {
-		namespace, err := r.createNamespace(&network, ctx, log)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		err = r.createNetworkPolicy(&network, namespace, ctx, log)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
-		return ctrl.Result{}, nil
 	}
 
 	//is network policy created? --> create only network policy
@@ -314,51 +253,13 @@ func (r NetworkReconciler) ManageOperatorLogic(
 	return ctrl.Result{}, nil
 }
 
-func (r NetworkReconciler) ManageCleanUpLogic(network networksimulatorv1.Network,
-	ctx context.Context, log logr.Logger) error {
-
-	namespace, err := r.GetNamespace(network.Spec.Name, ctx)
-	if err != nil {
-		// namespace doesn't exist, we don't need to to anything
-		return nil
-	}
-	if err := r.GetClient().Delete(ctx, namespace); err != nil {
-		log.Error(err, "unable to delete namespace for network when cleaning up",
-			"namespace", namespace)
-		return err
-	}
-	return nil
+// ManageCleanUpLogic cleans up resources needed for the network
+func (r NetworkReconciler) ManageCleanUpLogic(network networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+	// We only need to delete namespace since everything is created inside it
+	return r.ManageCleanUpNamespace(network, ctx, log)
 }
 
-func (r *NetworkReconciler) createNamespace(
-	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) (*v1.Namespace, error) {
-	namespace := &v1.Namespace{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels:      make(map[string]string),
-			Annotations: make(map[string]string),
-			Name:        network.Spec.Name,
-		},
-		Spec:   v1.NamespaceSpec{},
-		Status: v1.NamespaceStatus{},
-	}
-	if err := ctrl.SetControllerReference(network, namespace, r.Scheme); err != nil {
-		log.Error(err, "Unable to set controller reference to namespace")
-		return nil, err
-	}
-	namespace.ObjectMeta.Labels["Patriot-Network"] = network.Spec.Name
 
-	if err := r.GetClient().Create(ctx, namespace); err != nil {
-		log.Error(err, "Unable to create Namespace for network", "namespace", namespace)
-		return nil, err
-	}
-	log.V(1).Info("Created namespace", "namespace", namespace)
-
-	network.Status.Name = network.Spec.Name
-	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-		return nil, err
-	}
-	return namespace, nil
-}
 
 func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Network, namespace *v1.Namespace,
 	ctx context.Context, log logr.Logger) error {
