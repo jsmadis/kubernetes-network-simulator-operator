@@ -80,3 +80,7 @@ type NetworkList struct {
 func init() {
 	SchemeBuilder.Register(&Network{}, &NetworkList{})
 }
+
+func (in Network) NetworkName() string {
+	return in.Spec.Name + "-network-policy"
+}

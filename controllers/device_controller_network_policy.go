@@ -21,6 +21,7 @@ import (
 	"github.com/go-logr/logr"
 	networksimulatorv1 "github.com/jsmadis/kubernetes-network-simulator-operator/api/v1"
 	v12 "k8s.io/api/networking/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
@@ -33,6 +34,14 @@ func (r DeviceReconciler) ManageNetworkPolicyLogic(device networksimulatorv1.Dev
 		}
 		return ctrl.Result{}, nil, false
 	}
+
+	if r.isNetworkPolicyOutDated(&device, ctx) {
+		if err := r.updateNetworkPolicy(&device, ctx, log); err != nil {
+			return ctrl.Result{}, nil, false
+		}
+		return ctrl.Result{}, nil, false
+	}
+
 	return ctrl.Result{}, nil, true
 }
 
@@ -48,11 +57,11 @@ func (r DeviceReconciler) ManageCleanUpNetworkPolicy(device networksimulatorv1.D
 
 // isNetworkPolicyCreated checks if the network policy is created for given device
 func (r DeviceReconciler) isNetworkPolicyCreated(device networksimulatorv1.Device, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(device.Name, device.Spec.NetworkName, ctx)
+	networkPolicy, err := r.GetNetworkPolicy(device.NetworkName(), device.Spec.NetworkName, ctx)
 	if err != nil {
 		return false
 	}
-	return networkPolicy.Name == device.Name+"-network-policy"
+	return networkPolicy.Name == device.NetworkName()
 }
 
 // shouldBeNetworkPolicyCreated checks if it is necessary to create network policy for given device
@@ -63,9 +72,22 @@ func (r DeviceReconciler) shouldBeNetworkPolicyCreated(device networksimulatorv1
 	return !r.isNetworkPolicyCreated(device, ctx)
 }
 
+// isNetworkPolicyOutDated checks if the network policy created for the device is outdated
+func (r DeviceReconciler) isNetworkPolicyOutDated(device *networksimulatorv1.Device, ctx context.Context) bool {
+	networkPolicy, err := r.GetNetworkPolicy(device.NetworkName(), device.Spec.NetworkName, ctx)
+	if err != nil {
+		return false
+	}
+	ingress := processIngressNetworkPolicy(device)
+	egress := processEgressNetworkPolicy(device)
+
+	return !(equality.Semantic.DeepEqual(networkPolicy.Spec.Ingress, ingress) &&
+		equality.Semantic.DeepEqual(networkPolicy.Spec.Egress, egress))
+}
+
 // deleteNetworkPolicy deletes network policy created for given device
 func (r DeviceReconciler) deleteNetworkPolicy(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
-	networkPolicy, err := r.GetNetworkPolicy(device.Name, device.Spec.NetworkName, ctx)
+	networkPolicy, err := r.GetNetworkPolicy(device.NetworkName(), device.Spec.NetworkName, ctx)
 	if err != nil {
 		log.V(1).Info("Unable to get network policy when cleaning up", "err", err)
 		return err
@@ -79,10 +101,28 @@ func (r DeviceReconciler) deleteNetworkPolicy(device networksimulatorv1.Device, 
 
 }
 
+// updateNetworkPolicy updates network policy that is outdated
+func (r DeviceReconciler) updateNetworkPolicy(device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+	networkPolicy, err := r.GetNetworkPolicy(device.NetworkName(), device.Spec.NetworkName, ctx)
+	if err != nil {
+		log.Error(err, "unable to find network policy to update", "device", device)
+		return err
+	}
+
+	networkPolicy.Spec.Egress = processEgressNetworkPolicy(device)
+	networkPolicy.Spec.Ingress = processIngressNetworkPolicy(device)
+	if err := r.GetClient().Update(ctx, networkPolicy); err != nil {
+		log.Error(err, "unable to update network policy for device", "network-policy", networkPolicy)
+		return err
+	}
+	log.V(1).Info("Updated network policy for device", "network-policy", networkPolicy)
+	return nil
+}
+
 // createNetworkPolicy creates network policy for given device
 func (r DeviceReconciler) createNetworkPolicy(
 	device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
-	name := device.Name + "-network-policy"
+	name := device.NetworkName()
 
 	ingress := processIngressNetworkPolicy(device)
 	egress := processEgressNetworkPolicy(device)

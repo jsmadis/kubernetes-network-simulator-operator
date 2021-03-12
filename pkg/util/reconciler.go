@@ -74,7 +74,7 @@ func (r ReconcilerBase) IsNamespaceBeingDeleted(name string, ctx context.Context
 func (r ReconcilerBase) GetNetworkPolicy(name string, namespace string, ctx context.Context) (*v12.NetworkPolicy, error) {
 	namespacedName := types.NamespacedName{
 		Namespace: namespace,
-		Name:      name + "-network-policy",
+		Name:      name,
 	}
 
 	var networkPolicy v12.NetworkPolicy

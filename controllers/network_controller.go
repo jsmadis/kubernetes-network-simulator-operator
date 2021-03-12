@@ -175,11 +175,11 @@ func (r NetworkReconciler) IsNamespaceCreated(network networksimulatorv1.Network
 }
 
 func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Network, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(network.Spec.Name, network.Spec.Name, ctx)
+	networkPolicy, err := r.GetNetworkPolicy(network.NetworkName(), network.Spec.Name, ctx)
 	if err != nil {
 		return false
 	}
-	return networkPolicy.Name == network.Spec.Name+"-network-policy"
+	return networkPolicy.Name == network.NetworkName()
 }
 
 func (r NetworkReconciler) updateNetworkStatus(
@@ -362,7 +362,7 @@ func (r *NetworkReconciler) createNamespace(
 
 func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Network, namespace *v1.Namespace,
 	ctx context.Context, log logr.Logger) error {
-	name := network.Spec.Name + "-network-policy"
+	name := network.NetworkName()
 	var ingress []v12.NetworkPolicyIngressRule
 	var egress []v12.NetworkPolicyEgressRule
 
