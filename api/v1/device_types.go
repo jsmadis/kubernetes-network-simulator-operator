@@ -65,8 +65,8 @@ type DeviceStatus struct {
 	// Name of the network where device is deployed
 	NetworkName string `json:"network_name"`
 
-	// Name of the device in the network
-	Name string `json:"name"`
+	// Name of the pod in the network
+	PodName string `json:"pod_name"`
 }
 
 //+kubebuilder:object:root=true

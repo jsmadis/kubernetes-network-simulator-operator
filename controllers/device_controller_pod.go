@@ -116,24 +116,32 @@ func (r DeviceReconciler) getPod(name string, namespace string, ctx context.Cont
 	return &pod, nil
 }
 
+// clearDeviceStatus set status for NetworkName and PodName to empty string
+func (r DeviceReconciler) clearDeviceStatus(device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) bool {
+	device.Status.NetworkName = ""
+	device.Status.PodName = ""
+	if err2 := r.updateDeviceStatus(device, ctx, log); err2 != nil {
+		log.Error(err2, "unable to clean status from old network and name that doesn't have pod")
+		return false
+	}
+	return true
+}
+
 // deleteOldPod when device is moved to another network we need to delete pod from old network
 // This function deletes pod from previous network
 func (r DeviceReconciler) deleteOldPod(device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) bool {
-	if device.Spec.NetworkName == device.Status.NetworkName && device.Name == device.Status.Name {
+	if device.Spec.NetworkName == device.Status.NetworkName && device.PodName() == device.Status.PodName {
 		return true
 	}
-	if device.Status.Name == "" || device.Status.NetworkName == "" {
+	if device.Status.PodName == "" || device.Status.NetworkName == "" {
 		return true
 	}
 
-	pod, err := r.getPod(device.Status.Name, device.Status.NetworkName, ctx)
+	pod, err := r.getPod(device.Status.PodName, device.Status.NetworkName, ctx)
 	if err != nil {
 		log.V(1).Info("Expected pod not found", "err", err)
 		// Pod doesn't exist so we need to remove old statuses
-		if err2 := r.updateDeviceStatus("", "", device, ctx, log); err2 != nil {
-			log.Error(err2, "unable to clean status from old network and name that doesn't have pod")
-			return false
-		}
+		r.clearDeviceStatus(device, ctx, log)
 		return false
 	}
 
@@ -142,7 +150,7 @@ func (r DeviceReconciler) deleteOldPod(device *networksimulatorv1.Device, ctx co
 		return false
 	}
 
-	if err := r.updateDeviceStatus("", "", device, ctx, log); err != nil {
+	if !r.clearDeviceStatus(device, ctx, log) {
 		return false
 	}
 
@@ -192,7 +200,9 @@ func (r DeviceReconciler) createPod(
 	log.V(1).Info("Created pod")
 
 	// update device status
-	if err := r.updateDeviceStatus(device.Spec.NetworkName, device.Name, device, ctx, log); err != nil {
+	device.Status.NetworkName = device.Spec.NetworkName
+	device.Status.PodName = name
+	if err := r.updateDeviceStatus(device, ctx, log); err != nil {
 		log.Error(err, "unable to update status for device", "device", device)
 	}
 

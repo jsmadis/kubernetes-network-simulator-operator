@@ -175,10 +175,7 @@ func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
 	return false
 }
 
-func (r DeviceReconciler) updateDeviceStatus(
-	networkName string, name string, device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
-	device.Status.NetworkName = networkName
-	device.Status.Name = name
+func (r DeviceReconciler) updateDeviceStatus(device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
 	if err := r.GetClient().Status().Update(ctx, device); err != nil {
 		log.Error(err, "unable to update status when old pod was deleted")
 		return err
