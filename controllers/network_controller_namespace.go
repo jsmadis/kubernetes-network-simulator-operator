@@ -38,11 +38,7 @@ func (r NetworkReconciler) ManageNamespaceLogic(network networksimulatorv1.Netwo
 	}
 
 	if !r.IsNamespaceCreated(network, ctx) {
-		namespace, err := r.createNamespace(&network, ctx, log)
-		if err != nil {
-			return ctrl.Result{}, err, false
-		}
-		err = r.createNetworkPolicy(&network, namespace, ctx, log)
+		_, err := r.createNamespace(&network, ctx, log)
 		if err != nil {
 			return ctrl.Result{}, err, false
 		}
@@ -63,6 +59,7 @@ func (r NetworkReconciler) ManageCleanUpNamespace(network networksimulatorv1.Net
 			"namespace", namespace)
 		return err
 	}
+	log.V(1).Info("Deleted namespace", "namespace", namespace)
 	return nil
 }
 

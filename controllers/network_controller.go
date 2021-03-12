@@ -31,7 +31,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
-	"time"
 )
 
 // NetworkReconciler reconciles a Network object
@@ -154,6 +153,7 @@ func (r NetworkReconciler) addWatcher(mgr ctrl.Manager) error {
 	return nil
 }
 
+// IsInitialized checks if the network is initialized
 func (r *NetworkReconciler) IsInitialized(obj metav1.Object) bool {
 	networkCrd, ok := obj.(*networksimulatorv1.Network)
 	if !ok {
@@ -166,14 +166,7 @@ func (r *NetworkReconciler) IsInitialized(obj metav1.Object) bool {
 	return false
 }
 
-func (r NetworkReconciler) IsNetworkPolicyCreated(network networksimulatorv1.Network, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(network.NetworkName(), network.Spec.Name, ctx)
-	if err != nil {
-		return false
-	}
-	return networkPolicy.Name == network.NetworkName()
-}
-
+// updateNetworkStatus updates the network status
 func (r NetworkReconciler) updateNetworkStatus(
 	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
 	if err := r.GetClient().Status().Update(ctx, network); err != nil {
@@ -181,42 +174,6 @@ func (r NetworkReconciler) updateNetworkStatus(
 		return err
 	}
 	return nil
-}
-
-func (r NetworkReconciler) deleteOutdatedNetworkPolicy(
-	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) bool {
-	if network.Spec.AllowIngressTraffic == network.Status.AllowIngressTraffic &&
-		network.Spec.AllowEgressTraffic == network.Status.AllowEgressTraffic {
-		return true
-	}
-	networkPolicy, err := r.GetNetworkPolicy(network.Spec.Name, network.Spec.Name, ctx)
-	if err != nil {
-		log.V(1).Info("Expected network policy not found", "err", err)
-		// Network policy already deleted
-		network.Status.AllowEgressTraffic = network.Spec.AllowEgressTraffic
-		network.Status.AllowIngressTraffic = network.Spec.AllowIngressTraffic
-		if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-			log.Error(err, "unable to update network status in deleteOutdatedNetworkPolicy")
-			return false
-		}
-		return false
-	}
-
-	if err := r.GetClient().Delete(ctx, networkPolicy); err != nil {
-		log.Error(err, "unable to delete outdated network policy")
-		return false
-	}
-
-	log.V(1).Info("Deleted outdated network policy", "networkPolicy", networkPolicy)
-	return false
-}
-
-func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulatorv1.Network, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(network.Spec.Name, network.Spec.Name, ctx)
-	if err != nil {
-		return false
-	}
-	return util.IsBeingDeleted(networkPolicy)
 }
 
 // ManageOperatorLogic manages operator logic for the network CRD
@@ -227,27 +184,8 @@ func (r NetworkReconciler) ManageOperatorLogic(
 		return result, err
 	}
 
-	if r.isNetworkPolicyBeingDeleted(&network, ctx) {
-		log.V(1).Info("Network policy is being deleted")
-		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-
-	if !r.deleteOutdatedNetworkPolicy(&network, ctx, log) {
-		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil
-	}
-
-	//is network policy created? --> create only network policy
-	if !r.IsNetworkPolicyCreated(network, ctx) {
-		namespace, err := r.GetNamespace(network.Spec.Name, ctx)
-		if err != nil {
-			log.Error(err, "unable to get namespace for network", "network", network)
-			return ctrl.Result{}, err
-		}
-
-		err = r.createNetworkPolicy(&network, namespace, ctx, log)
-		if err != nil {
-			return ctrl.Result{}, err
-		}
+	if result, err, ok := r.ManageNetworkPolicyLogic(network, ctx, log); !ok {
+		return result, err
 	}
 
 	return ctrl.Result{}, nil
@@ -257,59 +195,4 @@ func (r NetworkReconciler) ManageOperatorLogic(
 func (r NetworkReconciler) ManageCleanUpLogic(network networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
 	// We only need to delete namespace since everything is created inside it
 	return r.ManageCleanUpNamespace(network, ctx, log)
-}
-
-
-
-func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Network, namespace *v1.Namespace,
-	ctx context.Context, log logr.Logger) error {
-	name := network.NetworkName()
-	var ingress []v12.NetworkPolicyIngressRule
-	var egress []v12.NetworkPolicyEgressRule
-
-	if network.Spec.AllowEgressTraffic {
-		egress = append(egress, v12.NetworkPolicyEgressRule{
-			Ports: nil,
-			To:    nil,
-		})
-	}
-	if network.Spec.AllowIngressTraffic {
-		ingress = append(ingress, v12.NetworkPolicyIngressRule{
-			Ports: nil,
-			From:  nil,
-		})
-	}
-
-	networkPolicy := &v12.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels:      make(map[string]string),
-			Annotations: make(map[string]string),
-			Name:        name,
-			Namespace:   namespace.Name,
-		},
-		Spec: v12.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{},
-			Ingress:     ingress,
-			Egress:      egress,
-			PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress, v12.PolicyTypeIngress},
-		},
-	}
-	if err := ctrl.SetControllerReference(network, networkPolicy, r.Scheme); err != nil {
-		log.Error(err, "Unable to set controller reference to network policy")
-		return err
-	}
-
-	if err := r.GetClient().Create(ctx, networkPolicy); err != nil {
-		log.Error(err, "Unable to create network policy for network", "network-policy", networkPolicy)
-		return err
-	}
-
-	log.V(1).Info("Created network policy", "network-policy", networkPolicy)
-
-	network.Status.AllowEgressTraffic = network.Spec.AllowEgressTraffic
-	network.Status.AllowIngressTraffic = network.Spec.AllowIngressTraffic
-	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-		return err
-	}
-	return nil
 }
