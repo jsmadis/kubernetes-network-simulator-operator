@@ -161,6 +161,7 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 	return nil
 }
 
+// IsValidDevice checks if the device is valid
 func (r *DeviceReconciler) IsValidDevice(obj metav1.Object, ctx context.Context) (bool, error) {
 	deviceCrd, ok := obj.(*networksimulatorv1.Device)
 	if !ok {
@@ -173,6 +174,7 @@ func (r *DeviceReconciler) IsValidDevice(obj metav1.Object, ctx context.Context)
 	return true, nil
 }
 
+// IsInitialized checks if the device is initialized
 func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
 	networkCrd, ok := obj.(*networksimulatorv1.Device)
 	if !ok {
@@ -185,6 +187,7 @@ func (r *DeviceReconciler) IsInitialized(obj metav1.Object) bool {
 	return false
 }
 
+// updateDeviceStatus updates status of the device
 func (r DeviceReconciler) updateDeviceStatus(device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
 	if err := r.GetClient().Status().Update(ctx, device); err != nil {
 		log.Error(err, "unable to update status when old pod was deleted")
@@ -193,6 +196,7 @@ func (r DeviceReconciler) updateDeviceStatus(device *networksimulatorv1.Device, 
 	return nil
 }
 
+// ManageOperatorLogic manages operator logic for the
 func (r DeviceReconciler) ManageOperatorLogic(
 	device networksimulatorv1.Device, ctx context.Context, log logr.Logger) (ctrl.Result, error) {
 

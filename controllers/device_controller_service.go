@@ -41,6 +41,7 @@ func (r DeviceReconciler) ManageDeviceServiceLogic(device networksimulatorv1.Dev
 	return ctrl.Result{}, nil, true
 }
 
+// isServiceBeingDeleted checks if the service is being deleted
 func (r DeviceReconciler) isServiceBeingDeleted(device *networksimulatorv1.Device, ctx context.Context) bool {
 	service, err := r.getService(device, ctx)
 	if err != nil {
