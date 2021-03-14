@@ -136,7 +136,7 @@ func (r DeviceReconciler) createNetworkPolicy(
 		},
 		Spec: v12.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{"Patriot-Device": device.Name},
+				MatchLabels: map[string]string{"Patriot-Device": name},
 			},
 			Ingress:     ingress,
 			Egress:      egress,

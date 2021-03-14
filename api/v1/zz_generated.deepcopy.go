@@ -110,6 +110,7 @@ func (in *DevicePorts) DeepCopy() *DevicePorts {
 func (in *DeviceSpec) DeepCopyInto(out *DeviceSpec) {
 	*out = *in
 	in.PodTemplate.DeepCopyInto(&out.PodTemplate)
+	in.ServiceSpec.DeepCopyInto(&out.ServiceSpec)
 	if in.DeviceIngressPorts != nil {
 		in, out := &in.DeviceIngressPorts, &out.DeviceIngressPorts
 		*out = make([]DevicePorts, len(*in))

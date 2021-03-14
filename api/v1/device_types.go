@@ -48,6 +48,9 @@ type DeviceSpec struct {
 	// Specifies the pod that contains container of wanted device
 	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
 
+	// Specifies a service of the device
+	ServiceSpec v1.ServiceSpec `json:"service_spec"`
+
 	// Device ingress ports, specifies devices from which can this device receive connection
 	// +optional
 	DeviceIngressPorts []DevicePorts `json:"device_ingress_ports"`
@@ -101,4 +104,8 @@ func (in *Device) PodName() string {
 
 func (in Device) NetworkName() string {
 	return in.Name + "-network-policy"
+}
+
+func (in Device) ServiceName() string {
+	return in.Name + "-service"
 }

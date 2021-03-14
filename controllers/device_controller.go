@@ -148,6 +148,16 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 	if err != nil {
 		return err
 	}
+
+	// Watch for service owned by Device
+	err = c.Watch(&source.Kind{Type: &v1.Service{}}, &handler.EnqueueRequestForOwner{
+		OwnerType:    &networksimulatorv1.Device{},
+		IsController: true,
+	},
+		p)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -190,6 +200,10 @@ func (r DeviceReconciler) ManageOperatorLogic(
 		return result, err
 	}
 
+	if result, err, ok := r.ManageDeviceServiceLogic(device, ctx, log); !ok {
+		return result, err
+	}
+
 	if result, err, ok := r.ManageNetworkPolicyLogic(device, ctx, log); !ok {
 		return result, err
 	}
@@ -200,6 +214,9 @@ func (r DeviceReconciler) ManageOperatorLogic(
 func (r DeviceReconciler) ManageCleanUpLogic(device networksimulatorv1.Device,
 	ctx context.Context, log logr.Logger) error {
 	if err := r.ManageCleanUpPodLogic(device, ctx, log); err != nil {
+		return err
+	}
+	if err := r.ManageCleanUpService(device, ctx, log); err != nil {
 		return err
 	}
 	if err := r.ManageCleanUpNetworkPolicy(device, ctx, log); err != nil {
