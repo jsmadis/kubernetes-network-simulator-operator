@@ -5,4 +5,5 @@ metadata:
   name: network-sample
 spec:
   name: network-example
-
+  AllowEgressTraffic: true
+  AllowIngressTraffic: true

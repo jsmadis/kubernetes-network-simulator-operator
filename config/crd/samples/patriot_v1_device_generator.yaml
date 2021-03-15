@@ -1,0 +1,39 @@
+apiVersion: network-simulator.patriot-framework.io/v1
+kind: Device
+metadata:
+  name: device-generator-sample
+spec:
+  network_name: network-example
+  device_ingress_ports:
+    - device_name: device-generator-listener-sample
+      network_name: network-example1
+      network_policy_ports:
+        - protocol: UDP
+          port: 5683
+  device_egress_ports:
+    - device_name: device-generator-listener-sample
+      network_name: network-example
+      network_policy_ports:
+        - protocol: UDP
+          port: 5683
+  service_spec:
+    type: NodePort
+    ports:
+      - protocol: UDP
+        port: 5683
+        targetPort: 5683
+        nodePort: 30007
+  podTemplate:
+    metadata:
+      labels:
+        app: hello-kubernetes
+    spec:
+      containers:
+        - name: patriot-data-generator-runner
+          image: jsmadis/patriot-data-generator-runner:latest
+          ports:
+            - containerPort: 5683
+              protocol: UDP
+          env:
+            - name: PATRIOT_DATA_GENERATOR_DEVICE_FILE
+              value: /var/test.json

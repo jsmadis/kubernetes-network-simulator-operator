@@ -106,7 +106,7 @@ func (r DeviceReconciler) createOrUpdateService(device *networksimulatorv1.Devic
 			service.Spec.Selector = make(map[string]string)
 		}
 		if len(service.Spec.Selector) == 0 {
-			service.Spec.Selector["Patriot-Device"] = device.PodName()
+			service.Spec.Selector["Patriot-Device"] = device.Name
 		}
 
 		return nil
