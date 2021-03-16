@@ -110,13 +110,13 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 	if network.Spec.AllowEgressTraffic {
 		egress = append(egress, v12.NetworkPolicyEgressRule{
 			Ports: nil,
-			To:    nil,
+			To:    []v12.NetworkPolicyPeer{networkPolicyPeerLocalNamespace(network)},
 		})
 	}
 	if network.Spec.AllowIngressTraffic {
 		ingress = append(ingress, v12.NetworkPolicyIngressRule{
 			Ports: nil,
-			From:  nil,
+			From:  []v12.NetworkPolicyPeer{networkPolicyPeerLocalNamespace(network)},
 		})
 	}
 
@@ -152,4 +152,12 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 		return err
 	}
 	return nil
+}
+
+func networkPolicyPeerLocalNamespace(network *networksimulatorv1.Network) v12.NetworkPolicyPeer {
+	return v12.NetworkPolicyPeer{
+		NamespaceSelector: &metav1.LabelSelector{
+			MatchLabels: map[string]string{"Patriot-Network": network.Spec.Name},
+		},
+	}
 }
