@@ -47,12 +47,6 @@ type NetworkStatus struct {
 
 	// Name of the network
 	Name string `json:"name"`
-
-	// Disable ingress traffic inside network
-	DisableInsideIngressTraffic bool `json:"disable_inside_ingress_traffic"`
-
-	// Disable egress traffice inside network
-	DisableInsideEgressTraffic bool `json:"disable_inside_egress_traffic"`
 }
 
 //+kubebuilder:object:root=true

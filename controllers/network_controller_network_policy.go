@@ -34,26 +34,11 @@ func (r NetworkReconciler) ManageNetworkPolicyLogic(network networksimulatorv1.N
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil, false
 	}
 
-	if !r.deleteOutdatedNetworkPolicy(&network, ctx, log) {
-		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil, false
+	if err := r.createOrUpdateNetworkPolicy(&network, ctx, log); err != nil {
+		return ctrl.Result{}, err, false
 	}
 
-	if !r.isNetworkPolicyCreated(network, ctx) {
-		if err := r.createNetworkPolicy(&network, ctx, log); err != nil {
-			return ctrl.Result{}, err, false
-		}
-		return ctrl.Result{}, nil, false
-	}
 	return ctrl.Result{}, nil, true
-}
-
-// isNetworkPolicyCreated checks if the network policy for the patriot network is created
-func (r NetworkReconciler) isNetworkPolicyCreated(network networksimulatorv1.Network, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(network.NetworkName(), network.Spec.Name, ctx)
-	if err != nil {
-		return false
-	}
-	return networkPolicy.Name == network.NetworkName()
 }
 
 // isNetworkPolicyBeingDeleted checks if the network policy for the patrit network is being deleted
@@ -65,44 +50,8 @@ func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulator
 	return util.IsBeingDeleted(networkPolicy)
 }
 
-// deleteOutdatedNetworkPolicy removes outdated network policy
-// TODO: Maybe we should change it to update?
-func (r NetworkReconciler) deleteOutdatedNetworkPolicy(
-	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) bool {
-	if network.Spec.DisableInsideIngressTraffic == network.Status.DisableInsideIngressTraffic &&
-		network.Spec.DisableInsideEgressTraffic == network.Status.DisableInsideEgressTraffic {
-		return true
-	}
-	networkPolicy, err := r.GetNetworkPolicy(network.Spec.Name, network.Spec.Name, ctx)
-	if err != nil {
-		log.V(1).Info("Expected network policy not found", "err", err)
-		// Network policy already deleted
-		network.Status.DisableInsideEgressTraffic = network.Spec.DisableInsideEgressTraffic
-		network.Status.DisableInsideIngressTraffic = network.Spec.DisableInsideIngressTraffic
-		if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-			log.Error(err, "unable to update network status in deleteOutdatedNetworkPolicy")
-			return false
-		}
-		return false
-	}
-
-	if err := r.GetClient().Delete(ctx, networkPolicy); err != nil {
-		log.Error(err, "unable to delete outdated network policy")
-		return false
-	}
-
-	log.V(1).Info("Deleted outdated network policy", "networkPolicy", networkPolicy)
-	return false
-}
-
-// createNetworkPolicy creates netwokr policy for the patriot network
-func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
-	namespace, err := r.GetNamespace(network.Spec.Name, ctx)
-	if err != nil {
-		log.Error(err, "unable to get namespace for network", "network", network)
-		return err
-	}
-
+// createNetworkPolicy creates or updates network policy for the patriot network
+func (r *NetworkReconciler) createOrUpdateNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
 	name := network.NetworkName()
 	var ingress []v12.NetworkPolicyIngressRule
 	var egress []v12.NetworkPolicyEgressRule
@@ -125,7 +74,7 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
 			Name:        name,
-			Namespace:   namespace.Name,
+			Namespace:   network.Spec.Name,
 		},
 		Spec: v12.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
@@ -139,21 +88,18 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 		return err
 	}
 
-	if err := r.GetClient().Create(ctx, networkPolicy); err != nil {
-		log.Error(err, "Unable to create network policy for network", "network-policy", networkPolicy)
+	op, err := ctrl.CreateOrUpdate(ctx, r.GetClient(), networkPolicy, func() error { return nil })
+	if err != nil {
+		log.Error(err, "Unable to create or update network policy for network", "network-policy", networkPolicy)
 		return err
 	}
 
-	log.V(1).Info("Created network policy", "network-policy", networkPolicy)
+	log.V(1).Info("Created network policy", "network-policy", networkPolicy, "operation", op)
 
-	network.Status.DisableInsideEgressTraffic = network.Spec.DisableInsideEgressTraffic
-	network.Status.DisableInsideIngressTraffic = network.Spec.DisableInsideIngressTraffic
-	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-		return err
-	}
 	return nil
 }
 
+// networkPolicyPeerLocalNamespace returns network policy peer with namespace selector to the patriot network
 func networkPolicyPeerLocalNamespace(network *networksimulatorv1.Network) v12.NetworkPolicyPeer {
 	return v12.NetworkPolicyPeer{
 		NamespaceSelector: &metav1.LabelSelector{

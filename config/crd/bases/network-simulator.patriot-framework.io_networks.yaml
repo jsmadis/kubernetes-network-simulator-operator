@@ -36,11 +36,11 @@ spec:
           spec:
             description: NetworkSpec defines the desired state of Network
             properties:
-              AllowEgressTraffic:
-                description: Allow traffic from network
+              disable_inside_egress_traffic:
+                description: Disable egress traffice inside network
                 type: boolean
-              AllowIngressTraffic:
-                description: Allow traffic into network
+              disable_inside_ingress_traffic:
+                description: Disable ingress traffic inside network
                 type: boolean
               name:
                 description: Name of the network
@@ -51,18 +51,10 @@ spec:
           status:
             description: NetworkStatus defines the observed state of Network
             properties:
-              AllowEgressTraffic:
-                description: Allow traffic from network
-                type: boolean
-              AllowIngressTraffic:
-                description: Allow traffic into network
-                type: boolean
               name:
                 description: Name of the network
                 type: string
             required:
-            - AllowEgressTraffic
-            - AllowIngressTraffic
             - name
             type: object
         type: object
