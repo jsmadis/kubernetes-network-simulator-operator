@@ -43,7 +43,7 @@ func (r NetworkReconciler) ManageNetworkPolicyLogic(network networksimulatorv1.N
 
 // isNetworkPolicyBeingDeleted checks if the network policy for the patrit network is being deleted
 func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulatorv1.Network, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(network.Spec.Name, network.Spec.Name, ctx)
+	networkPolicy, err := r.GetNetworkPolicy(network.NetworkPolicyName(), network.Spec.Name, ctx)
 	if err != nil {
 		return false
 	}
@@ -52,7 +52,7 @@ func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulator
 
 // createNetworkPolicy creates or updates network policy for the patriot network
 func (r *NetworkReconciler) createOrUpdateNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
-	name := network.NetworkName()
+	name := network.NetworkPolicyName()
 	var ingress []v12.NetworkPolicyIngressRule
 	var egress []v12.NetworkPolicyEgressRule
 

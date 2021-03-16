@@ -75,6 +75,6 @@ func init() {
 	SchemeBuilder.Register(&Network{}, &NetworkList{})
 }
 
-func (in Network) NetworkName() string {
+func (in Network) NetworkPolicyName() string {
 	return in.Spec.Name + "-network-policy"
 }
