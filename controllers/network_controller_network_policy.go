@@ -69,16 +69,16 @@ func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulator
 // TODO: Maybe we should change it to update?
 func (r NetworkReconciler) deleteOutdatedNetworkPolicy(
 	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) bool {
-	if network.Spec.AllowIngressTraffic == network.Status.AllowIngressTraffic &&
-		network.Spec.AllowEgressTraffic == network.Status.AllowEgressTraffic {
+	if network.Spec.DisableInsideIngressTraffic == network.Status.DisableInsideIngressTraffic &&
+		network.Spec.DisableInsideEgressTraffic == network.Status.DisableInsideEgressTraffic {
 		return true
 	}
 	networkPolicy, err := r.GetNetworkPolicy(network.Spec.Name, network.Spec.Name, ctx)
 	if err != nil {
 		log.V(1).Info("Expected network policy not found", "err", err)
 		// Network policy already deleted
-		network.Status.AllowEgressTraffic = network.Spec.AllowEgressTraffic
-		network.Status.AllowIngressTraffic = network.Spec.AllowIngressTraffic
+		network.Status.DisableInsideEgressTraffic = network.Spec.DisableInsideEgressTraffic
+		network.Status.DisableInsideIngressTraffic = network.Spec.DisableInsideIngressTraffic
 		if err := r.updateNetworkStatus(network, ctx, log); err != nil {
 			log.Error(err, "unable to update network status in deleteOutdatedNetworkPolicy")
 			return false
@@ -107,13 +107,13 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 	var ingress []v12.NetworkPolicyIngressRule
 	var egress []v12.NetworkPolicyEgressRule
 
-	if network.Spec.AllowEgressTraffic {
+	if !network.Spec.DisableInsideEgressTraffic {
 		egress = append(egress, v12.NetworkPolicyEgressRule{
 			Ports: nil,
 			To:    []v12.NetworkPolicyPeer{networkPolicyPeerLocalNamespace(network)},
 		})
 	}
-	if network.Spec.AllowIngressTraffic {
+	if !network.Spec.DisableInsideIngressTraffic {
 		ingress = append(ingress, v12.NetworkPolicyIngressRule{
 			Ports: nil,
 			From:  []v12.NetworkPolicyPeer{networkPolicyPeerLocalNamespace(network)},
@@ -146,8 +146,8 @@ func (r *NetworkReconciler) createNetworkPolicy(network *networksimulatorv1.Netw
 
 	log.V(1).Info("Created network policy", "network-policy", networkPolicy)
 
-	network.Status.AllowEgressTraffic = network.Spec.AllowEgressTraffic
-	network.Status.AllowIngressTraffic = network.Spec.AllowIngressTraffic
+	network.Status.DisableInsideEgressTraffic = network.Spec.DisableInsideEgressTraffic
+	network.Status.DisableInsideIngressTraffic = network.Spec.DisableInsideIngressTraffic
 	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
 		return err
 	}

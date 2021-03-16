@@ -31,13 +31,13 @@ type NetworkSpec struct {
 	// Name of the network
 	Name string `json:"name"`
 
-	// Allow traffic into network
+	// Disable ingress traffic inside network
 	// +optional
-	AllowIngressTraffic bool `json:"AllowIngressTraffic"`
+	DisableInsideIngressTraffic bool `json:"disable_inside_ingress_traffic"`
 
-	// Allow traffic from network
+	// Disable egress traffice inside network
 	// +optional
-	AllowEgressTraffic bool `json:"AllowEgressTraffic"`
+	DisableInsideEgressTraffic bool `json:"disable_inside_egress_traffic"`
 }
 
 // NetworkStatus defines the observed state of Network
@@ -48,11 +48,11 @@ type NetworkStatus struct {
 	// Name of the network
 	Name string `json:"name"`
 
-	// Allow traffic into network
-	AllowIngressTraffic bool `json:"AllowIngressTraffic"`
+	// Disable ingress traffic inside network
+	DisableInsideIngressTraffic bool `json:"disable_inside_ingress_traffic"`
 
-	// Allow traffic from network
-	AllowEgressTraffic bool `json:"AllowEgressTraffic"`
+	// Disable egress traffice inside network
+	DisableInsideEgressTraffic bool `json:"disable_inside_egress_traffic"`
 }
 
 //+kubebuilder:object:root=true
