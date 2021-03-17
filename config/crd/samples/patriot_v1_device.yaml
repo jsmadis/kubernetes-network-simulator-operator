@@ -3,8 +3,8 @@ kind: Device
 metadata:
   name: device-sample
 spec:
-  network_name: network-example
-  service_spec:
+  networkName: network-example
+  serviceSpec:
     ports:
       - protocol: TCP
         port: 8080

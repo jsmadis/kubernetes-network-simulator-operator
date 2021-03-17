@@ -25,13 +25,13 @@ import (
 // DevicePorts specifies Device, network and ports used in the network policy
 type DevicePorts struct {
 	// name of the device
-	DeviceName string `json:"device_name"`
+	DeviceName string `json:"deviceName"`
 
 	// name of the network
-	NetworkName string `json:"network_name"`
+	NetworkName string `json:"networkName"`
 
 	// network policy pods
-	NetworkPolicyPorts []v12.NetworkPolicyPort `json:"network_policy_ports"`
+	NetworkPolicyPorts []v12.NetworkPolicyPort `json:"networkPolicyPorts"`
 }
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -43,21 +43,21 @@ type DeviceSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Name of the network where to deploy device
-	NetworkName string `json:"network_name"`
+	NetworkName string `json:"networkName"`
 
 	// Specifies the pod that contains container of wanted device
 	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
 
 	// Specifies a service of the device
-	ServiceSpec v1.ServiceSpec `json:"service_spec"`
+	ServiceSpec v1.ServiceSpec `json:"serviceSpec"`
 
 	// Device ingress ports, specifies devices from which can this device receive connection
 	// +optional
-	DeviceIngressPorts []DevicePorts `json:"device_ingress_ports"`
+	DeviceIngressPorts []DevicePorts `json:"deviceIngressPorts"`
 
 	// Device egress ports, specifies devices to which can this device create connection
 	// +optional
-	DeviceEgressPorts []DevicePorts `json:"device_egress_ports"`
+	DeviceEgressPorts []DevicePorts `json:"deviceEgressPorts"`
 }
 
 // DeviceStatus defines the observed state of Device
@@ -66,10 +66,10 @@ type DeviceStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// Name of the network where device is deployed
-	NetworkName string `json:"network_name"`
+	NetworkName string `json:"networkName"`
 
 	// Name of the pod in the network
-	PodName string `json:"pod_name"`
+	PodName string `json:"podName"`
 }
 
 //+kubebuilder:object:root=true

@@ -30,11 +30,11 @@ type NetworkSpec struct {
 
 	// Disable ingress traffic inside network
 	// +optional
-	DisableInsideIngressTraffic bool `json:"disable_inside_ingress_traffic"`
+	DisableInsideIngressTraffic bool `json:"disableInsideIngressTraffic"`
 
 	// Disable egress traffice inside network
 	// +optional
-	DisableInsideEgressTraffic bool `json:"disable_inside_egress_traffic"`
+	DisableInsideEgressTraffic bool `json:"disableInsideEgressTraffic"`
 }
 
 // NetworkStatus defines the observed state of Network

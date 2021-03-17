@@ -3,20 +3,20 @@ kind: Device
 metadata:
   name: device-generator-listener-sample
 spec:
-  network_name: network-example1
-  device_ingress_ports:
-    - device_name: device-generator-sample
-      network_name: network-example
-      network_policy_ports:
+  networkName: network-example1
+  deviceIngressPorts:
+    - deviceName: device-generator-sample
+      networkName: network-example
+      networkPolicyPorts:
         - protocol: UDP
           port: 5683
-  device_egress_ports:
-    - device_name: device-generator-sample
-      network_name: network-example
-      network_policy_ports:
+  deviceEgressPorts:
+    - deviceName: device-generator-sample
+      networkName: network-example
+      networkPolicyPorts:
         - protocol: UDP
           port: 5683
-  service_spec:
+  serviceSpec:
     type: NodePort
     ports:
       - protocol: UDP
@@ -36,4 +36,4 @@ spec:
               protocol: UDP
           env:
             - name: PATRIOT_DEVICE_URL
-              value: coap://10.244.120.72:5683
+              value: coap://10.244.120.67:5683

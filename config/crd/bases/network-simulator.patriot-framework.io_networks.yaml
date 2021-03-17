@@ -36,10 +36,10 @@ spec:
           spec:
             description: NetworkSpec defines the desired state of Network
             properties:
-              disable_inside_egress_traffic:
+              disableInsideEgressTraffic:
                 description: Disable egress traffice inside network
                 type: boolean
-              disable_inside_ingress_traffic:
+              disableInsideIngressTraffic:
                 description: Disable ingress traffic inside network
                 type: boolean
             type: object
