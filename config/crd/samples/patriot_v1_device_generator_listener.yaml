@@ -23,17 +23,13 @@ spec:
         port: 5683
         targetPort: 5683
         nodePort: 30008
-  podTemplate:
-    metadata:
-      labels:
-        app: hello-kubernetes
-    spec:
-      containers:
-        - name: patriot-data-generator-runner
-          image: jsmadis/patriot-data-generator-runner:listener
-          ports:
-            - containerPort: 5863
-              protocol: UDP
-          env:
-            - name: PATRIOT_DEVICE_URL
-              value: coap://10.244.120.67:5683
+  podSpec:
+    containers:
+      - name: patriot-data-generator-runner
+        image: jsmadis/patriot-data-generator-runner:listener
+        ports:
+          - containerPort: 5863
+            protocol: UDP
+        env:
+          - name: PATRIOT_DEVICE_URL
+            value: coap://10.244.120.67:5683

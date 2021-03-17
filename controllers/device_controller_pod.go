@@ -97,7 +97,7 @@ func (r DeviceReconciler) isPodOutDated(device networksimulatorv1.Device, ctx co
 	if err != nil {
 		return false
 	}
-	return !equality.Semantic.DeepDerivative(device.Spec.PodTemplate.Spec, pod.Spec)
+	return !equality.Semantic.DeepDerivative(device.Spec.PodSpec, pod.Spec)
 }
 
 // getPod returns pod for given name and namespace
@@ -184,7 +184,7 @@ func (r DeviceReconciler) createPod(
 			Name:        name,
 			Namespace:   device.Spec.NetworkName,
 		},
-		Spec: *device.Spec.PodTemplate.Spec.DeepCopy(),
+		Spec: *device.Spec.PodSpec.DeepCopy(),
 	}
 	pod.ObjectMeta.Labels["Patriot-Device"] = device.Name
 	pod.ObjectMeta.Labels["Patriot"] = "device"

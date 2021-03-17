@@ -46,7 +46,7 @@ type DeviceSpec struct {
 	NetworkName string `json:"networkName"`
 
 	// Specifies the pod that contains container of wanted device
-	PodTemplate v1.PodTemplateSpec `json:"podTemplate"`
+	PodSpec v1.PodSpec `json:"podSpec"`
 
 	// Specifies a service of the device
 	ServiceSpec v1.ServiceSpec `json:"serviceSpec"`
