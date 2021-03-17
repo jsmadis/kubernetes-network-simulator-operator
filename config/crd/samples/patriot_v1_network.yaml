@@ -2,4 +2,4 @@ apiVersion: network-simulator.patriot-framework.io/v1
 kind: Network
 
 metadata:
-  name: network-sample
+  name: network-example1

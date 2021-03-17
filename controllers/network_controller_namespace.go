@@ -39,7 +39,6 @@ func (r NetworkReconciler) ManageNamespaceLogic(network networksimulatorv1.Netwo
 		if err != nil {
 			return ctrl.Result{}, err, false
 		}
-		return ctrl.Result{}, nil, false
 	}
 	return ctrl.Result{}, nil, true
 }
