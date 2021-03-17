@@ -29,11 +29,8 @@ import (
 // ManageNamespaceLogic manage all logic about namespace for network
 func (r NetworkReconciler) ManageNamespaceLogic(network networksimulatorv1.Network, ctx context.Context, log logr.Logger) (ctrl.Result, error, bool) {
 	// requeue reconcilation when namespace is being deleted
-	if r.IsNamespaceBeingDeleted(network.Spec.Name, ctx) {
+	if r.IsNamespaceBeingDeleted(network.Name, ctx) {
 		log.V(1).Info("Namespace is being deleted")
-		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil, false
-	}
-	if !r.deleteOldNamespace(&network, ctx, log) {
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil, false
 	}
 
@@ -49,7 +46,7 @@ func (r NetworkReconciler) ManageNamespaceLogic(network networksimulatorv1.Netwo
 
 // ManageCleanUpNamespace deletes the namespace, no need to delete anything else since we creates resources inside namespace
 func (r NetworkReconciler) ManageCleanUpNamespace(network networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
-	namespace, err := r.GetNamespace(network.Spec.Name, ctx)
+	namespace, err := r.GetNamespace(network.Name, ctx)
 	if err != nil {
 		// namespace doesn't exist, we don't need to to anything
 		return nil
@@ -65,47 +62,11 @@ func (r NetworkReconciler) ManageCleanUpNamespace(network networksimulatorv1.Net
 
 // IsNamespaceCreated checks if the namespace for network is created
 func (r NetworkReconciler) IsNamespaceCreated(network networksimulatorv1.Network, ctx context.Context) bool {
-	namespace, err := r.GetNamespace(network.Spec.Name, ctx)
+	namespace, err := r.GetNamespace(network.Name, ctx)
 	if err != nil {
 		return false
 	}
-	return namespace.Name == network.Spec.Name
-}
-
-// deleteOldNamespace delete old namespace when the CRD is updated with new name of the namespace
-func (r NetworkReconciler) deleteOldNamespace(
-	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) bool {
-	if network.Spec.Name == network.Status.Name {
-		return true
-	}
-	if network.Status.Name == "" {
-		return true
-	}
-	namespace, err := r.GetNamespace(network.Status.Name, ctx)
-	if err != nil {
-		log.V(1).Info("Expected namespace not found", "err", err)
-		// Namespace is already deleted
-		network.Status.Name = network.Spec.Name
-		if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-			log.Error(err, "unable to update status with correct network name")
-			return false
-		}
-		return false
-	}
-
-	if err := r.GetClient().Delete(ctx, namespace); err != nil {
-		log.Error(err, "unable to delete forgotten old namespace", "namespace", namespace)
-		return false
-	}
-
-	network.Status.Name = network.Spec.Name
-	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-		log.Error(err, "unable to update status with correct network name after old namespace was deleted")
-		return false
-	}
-
-	log.V(1).Info("Old namespace deleted", "namespace", namespace)
-	return false
+	return namespace.Name == network.Name
 }
 
 // createNamespace creates namespace for the network
@@ -115,7 +76,7 @@ func (r *NetworkReconciler) createNamespace(
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
-			Name:        network.Spec.Name,
+			Name:        network.Name,
 		},
 		Spec:   v1.NamespaceSpec{},
 		Status: v1.NamespaceStatus{},
@@ -124,7 +85,7 @@ func (r *NetworkReconciler) createNamespace(
 		log.Error(err, "Unable to set controller reference to namespace")
 		return nil, err
 	}
-	namespace.ObjectMeta.Labels["Patriot-Network"] = network.Spec.Name
+	namespace.ObjectMeta.Labels["Patriot-Network"] = network.Name
 
 	if err := r.GetClient().Create(ctx, namespace); err != nil {
 		log.Error(err, "Unable to create Namespace for network", "namespace", namespace)
@@ -132,9 +93,5 @@ func (r *NetworkReconciler) createNamespace(
 	}
 	log.V(1).Info("Created namespace", "namespace", namespace)
 
-	network.Status.Name = network.Spec.Name
-	if err := r.updateNetworkStatus(network, ctx, log); err != nil {
-		return nil, err
-	}
 	return namespace, nil
 }

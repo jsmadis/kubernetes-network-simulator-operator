@@ -166,16 +166,6 @@ func (r *NetworkReconciler) IsInitialized(obj metav1.Object) bool {
 	return false
 }
 
-// updateNetworkStatus updates the network status
-func (r NetworkReconciler) updateNetworkStatus(
-	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
-	if err := r.GetClient().Status().Update(ctx, network); err != nil {
-		log.Error(err, "unable to update network status", "network", network)
-		return err
-	}
-	return nil
-}
-
 // ManageOperatorLogic manages operator logic for the network CRD
 func (r NetworkReconciler) ManageOperatorLogic(
 	network networksimulatorv1.Network, ctx context.Context, log logr.Logger) (ctrl.Result, error) {

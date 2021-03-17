@@ -3,5 +3,3 @@ kind: Network
 
 metadata:
   name: network-sample
-spec:
-  name: network-example

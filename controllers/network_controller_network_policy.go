@@ -43,7 +43,7 @@ func (r NetworkReconciler) ManageNetworkPolicyLogic(network networksimulatorv1.N
 
 // isNetworkPolicyBeingDeleted checks if the network policy for the patrit network is being deleted
 func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulatorv1.Network, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(network.NetworkPolicyName(), network.Spec.Name, ctx)
+	networkPolicy, err := r.GetNetworkPolicy(network.NetworkPolicyName(), network.Name, ctx)
 	if err != nil {
 		return false
 	}
@@ -74,7 +74,7 @@ func (r *NetworkReconciler) createOrUpdateNetworkPolicy(network *networksimulato
 			Labels:      make(map[string]string),
 			Annotations: make(map[string]string),
 			Name:        name,
-			Namespace:   network.Spec.Name,
+			Namespace:   network.Name,
 		},
 		Spec: v12.NetworkPolicySpec{
 			PodSelector: metav1.LabelSelector{},
@@ -103,7 +103,7 @@ func (r *NetworkReconciler) createOrUpdateNetworkPolicy(network *networksimulato
 func networkPolicyPeerLocalNamespace(network *networksimulatorv1.Network) v12.NetworkPolicyPeer {
 	return v12.NetworkPolicyPeer{
 		NamespaceSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"Patriot-Network": network.Spec.Name},
+			MatchLabels: map[string]string{"Patriot-Network": network.Name},
 		},
 	}
 }

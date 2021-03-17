@@ -28,9 +28,6 @@ type NetworkSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Name of the network
-	Name string `json:"name"`
-
 	// Disable ingress traffic inside network
 	// +optional
 	DisableInsideIngressTraffic bool `json:"disable_inside_ingress_traffic"`
@@ -45,8 +42,6 @@ type NetworkStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Name of the network
-	Name string `json:"name"`
 }
 
 //+kubebuilder:object:root=true
@@ -76,5 +71,5 @@ func init() {
 }
 
 func (in Network) NetworkPolicyName() string {
-	return in.Spec.Name + "-network-policy"
+	return in.Name + "-network-policy"
 }
