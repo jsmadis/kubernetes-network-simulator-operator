@@ -25,7 +25,8 @@ import (
 // DevicePorts specifies Device, network and ports used in the network policy
 type DevicePorts struct {
 	// name of the device
-	DeviceName string `json:"deviceName"`
+	// +optional
+	DeviceName string `json:"deviceName,omitempty"`
 
 	// name of the network
 	NetworkName string `json:"networkName"`

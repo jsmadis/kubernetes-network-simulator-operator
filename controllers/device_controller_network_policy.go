@@ -188,10 +188,14 @@ func processEgressNetworkPolicy(device *networksimulatorv1.Device) []v12.Network
 func processNetworkPolicyPeer(ports networksimulatorv1.DevicePorts) []v12.NetworkPolicyPeer {
 	var peers []v12.NetworkPolicyPeer
 
+	// If DeviceName is empty select every pod --> device should see every pod from other network
+	podSelectorLabelSelector := &metav1.LabelSelector{}
+	if ports.DeviceName != "" {
+		podSelectorLabelSelector.MatchLabels = map[string]string{"Patriot-Device": ports.DeviceName}
+	}
+
 	peers = append(peers, v12.NetworkPolicyPeer{
-		PodSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"Patriot-Device": ports.DeviceName},
-		},
+		PodSelector: podSelectorLabelSelector,
 		NamespaceSelector: &metav1.LabelSelector{
 			MatchLabels: map[string]string{"Patriot-Network": ports.NetworkName},
 		},

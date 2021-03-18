@@ -73,7 +73,6 @@ spec:
                         type: object
                       type: array
                   required:
-                  - deviceName
                   - networkName
                   - networkPolicyPorts
                   type: object
@@ -115,7 +114,6 @@ spec:
                         type: object
                       type: array
                   required:
-                  - deviceName
                   - networkName
                   - networkPolicyPorts
                   type: object
