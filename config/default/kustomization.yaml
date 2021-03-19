@@ -1,12 +1,12 @@
 # Adds namespace to all resources.
-namespace: kubernetes-network-simulator-operator-system
+namespace: patriot-network-simulator-system
 
 # Value of this field is prepended to the
 # names of all resources, e.g. a deployment named
 # "wordpress" becomes "alices-wordpress".
 # Note that it should also match with the prefix (text before '-') of the namespace
 # field above.
-namePrefix: kubernetes-network-simulator-operator-
+namePrefix: patriot-network-simulator-
 
 # Labels to add to all resources and selectors.
 #commonLabels:
