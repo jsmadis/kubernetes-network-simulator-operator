@@ -114,9 +114,7 @@ func (r DeviceReconciler) manageNetworkPolicyConnection(
 			Namespace:   device.Spec.NetworkName,
 		},
 		Spec: v12.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{"Patriot-Device": device.Name},
-			},
+			PodSelector: devicePodSelector(device),
 			Ingress:     ingress,
 			Egress:      egress,
 			PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress, v12.PolicyTypeIngress},
@@ -144,6 +142,7 @@ func (r DeviceReconciler) manageNetworkPolicyDefault(device *networksimulatorv1.
 		},
 		Spec: *device.Spec.NetworkPolicySpec.DeepCopy(),
 	}
+	networkPolicy.Spec.PodSelector = devicePodSelector(device)
 
 	return r.createOrUpdateNetworkPolicy(networkPolicy, device, ctx, log)
 }
@@ -211,4 +210,11 @@ func processNetworkPolicyPeer(ports networksimulatorv1.DevicePorts) []v12.Networ
 		},
 	})
 	return peers
+}
+
+// devicePodSelector returns pod selector that selects given device
+func devicePodSelector(device *networksimulatorv1.Device) metav1.LabelSelector {
+	return metav1.LabelSelector{
+		MatchLabels: map[string]string{"Patriot-Device": device.Name},
+	}
 }
