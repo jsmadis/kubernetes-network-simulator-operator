@@ -21,25 +21,23 @@ import (
 	"github.com/go-logr/logr"
 	networksimulatorv1 "github.com/jsmadis/kubernetes-network-simulator-operator/api/v1"
 	v12 "k8s.io/api/networking/v1"
-	"k8s.io/apimachinery/pkg/api/equality"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
 // ManageNetworkPolicyLogic manages all logic for device controller about network policy, creating, updating deleting...
 func (r DeviceReconciler) ManageNetworkPolicyLogic(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) (ctrl.Result, error, bool) {
-	if r.shouldBeNetworkPolicyCreated(device, ctx) {
-		if err := r.createNetworkPolicy(&device, ctx, log); err != nil {
+	if r.shouldBeNetworkPolicyConnectionCreated(device, ctx) {
+		if err := r.manageNetworkPolicyConnection(&device, ctx, log); err != nil {
 			return ctrl.Result{}, err, false
 		}
 		return ctrl.Result{}, nil, false
-	}
-
-	if r.isNetworkPolicyOutDated(&device, ctx) {
-		if err := r.updateNetworkPolicy(&device, ctx, log); err != nil {
-			return ctrl.Result{}, nil, false
+	} else {
+		if r.isNetworkPolicyCreated(device.NetworkNameConnection(), device, ctx) {
+			if err := r.deleteNetworkPolicy(device.NetworkNameConnection(), device, ctx, log); err != nil {
+				return ctrl.Result{}, nil, false
+			}
 		}
-		return ctrl.Result{}, nil, false
 	}
 
 	return ctrl.Result{}, nil, true
@@ -47,8 +45,8 @@ func (r DeviceReconciler) ManageNetworkPolicyLogic(device networksimulatorv1.Dev
 
 // ManageCleanUpNetworkPolicy manages clean up of all network policies created for given device
 func (r DeviceReconciler) ManageCleanUpNetworkPolicy(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
-	if r.isNetworkPolicyCreated(device, ctx) {
-		if err := r.deleteNetworkPolicy(device, ctx, log); err != nil {
+	if r.isNetworkPolicyCreated(device.NetworkNameConnection(), device, ctx) {
+		if err := r.deleteNetworkPolicy(device.NetworkNameConnection(), device, ctx, log); err != nil {
 			return err
 		}
 	}
@@ -56,38 +54,25 @@ func (r DeviceReconciler) ManageCleanUpNetworkPolicy(device networksimulatorv1.D
 }
 
 // isNetworkPolicyCreated checks if the network policy is created for given device
-func (r DeviceReconciler) isNetworkPolicyCreated(device networksimulatorv1.Device, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(device.NetworkName(), device.Spec.NetworkName, ctx)
+func (r DeviceReconciler) isNetworkPolicyCreated(name string, device networksimulatorv1.Device, ctx context.Context) bool {
+	networkPolicy, err := r.GetNetworkPolicy(name, device.Spec.NetworkName, ctx)
 	if err != nil {
 		return false
 	}
-	return networkPolicy.Name == device.NetworkName()
+	return networkPolicy.Name == name
 }
 
 // shouldBeNetworkPolicyCreated checks if it is necessary to create network policy for given device
-func (r DeviceReconciler) shouldBeNetworkPolicyCreated(device networksimulatorv1.Device, ctx context.Context) bool {
+func (r DeviceReconciler) shouldBeNetworkPolicyConnectionCreated(device networksimulatorv1.Device, ctx context.Context) bool {
 	if len(device.Spec.DeviceEgressPorts) == 0 && len(device.Spec.DeviceIngressPorts) == 0 {
 		return false
 	}
-	return !r.isNetworkPolicyCreated(device, ctx)
-}
-
-// isNetworkPolicyOutDated checks if the network policy created for the device is outdated
-func (r DeviceReconciler) isNetworkPolicyOutDated(device *networksimulatorv1.Device, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(device.NetworkName(), device.Spec.NetworkName, ctx)
-	if err != nil {
-		return false
-	}
-	ingress := processIngressNetworkPolicy(device)
-	egress := processEgressNetworkPolicy(device)
-
-	return !(equality.Semantic.DeepEqual(networkPolicy.Spec.Ingress, ingress) &&
-		equality.Semantic.DeepEqual(networkPolicy.Spec.Egress, egress))
+	return !r.isNetworkPolicyCreated(device.NetworkNameConnection(), device, ctx)
 }
 
 // deleteNetworkPolicy deletes network policy created for given device
-func (r DeviceReconciler) deleteNetworkPolicy(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
-	networkPolicy, err := r.GetNetworkPolicy(device.NetworkName(), device.Spec.NetworkName, ctx)
+func (r DeviceReconciler) deleteNetworkPolicy(name string, device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+	networkPolicy, err := r.GetNetworkPolicy(name, device.Spec.NetworkName, ctx)
 	if err != nil {
 		log.V(1).Info("Unable to get network policy when cleaning up", "err", err)
 		return err
@@ -101,28 +86,11 @@ func (r DeviceReconciler) deleteNetworkPolicy(device networksimulatorv1.Device, 
 
 }
 
-// updateNetworkPolicy updates network policy that is outdated
-func (r DeviceReconciler) updateNetworkPolicy(device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
-	networkPolicy, err := r.GetNetworkPolicy(device.NetworkName(), device.Spec.NetworkName, ctx)
-	if err != nil {
-		log.Error(err, "unable to find network policy to update", "device", device)
-		return err
-	}
-
-	networkPolicy.Spec.Egress = processEgressNetworkPolicy(device)
-	networkPolicy.Spec.Ingress = processIngressNetworkPolicy(device)
-	if err := r.GetClient().Update(ctx, networkPolicy); err != nil {
-		log.Error(err, "unable to update network policy for device", "network-policy", networkPolicy)
-		return err
-	}
-	log.V(1).Info("Updated network policy for device", "network-policy", networkPolicy)
-	return nil
-}
-
-// createNetworkPolicy creates network policy for given device
-func (r DeviceReconciler) createNetworkPolicy(
+// manageNetworkPolicyDeviceConnection creates or updates network policy for device connection
+// with other devices outside the network
+func (r DeviceReconciler) manageNetworkPolicyConnection(
 	device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
-	name := device.NetworkName()
+	name := device.NetworkNameConnection()
 
 	ingress := processIngressNetworkPolicy(device)
 	egress := processEgressNetworkPolicy(device)
@@ -144,16 +112,25 @@ func (r DeviceReconciler) createNetworkPolicy(
 		},
 	}
 
-	if err := ctrl.SetControllerReference(device, networkPolicy, r.Scheme); err != nil {
+	return r.createOrUpdateNetworkPolicy(networkPolicy, device, ctx, log)
+}
+
+// createOrUpdateNetworkPolicy creates or updates network policy for the device
+func (r DeviceReconciler) createOrUpdateNetworkPolicy(policy *v12.NetworkPolicy,
+	device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+
+	if err := ctrl.SetControllerReference(device, policy, r.Scheme); err != nil {
 		log.Error(err, "unable to set controller reference to the network policy")
 		return err
 	}
 
-	if err := r.GetClient().Create(ctx, networkPolicy); err != nil {
-		log.Error(err, "unable to create network policy for device", "device", device)
+	op, err := ctrl.CreateOrUpdate(ctx, r.GetClient(), policy, func() error { return nil })
+	if err != nil {
+		log.Error(err, "Unable to create or update network policy for device", "network-policy", policy)
 		return err
 	}
-	log.V(1).Info("Created network policy for device", "device", device, "network-policy", networkPolicy)
+
+	log.V(1).Info("Created network policy", "network-policy", policy, "operation", op)
 
 	return nil
 }

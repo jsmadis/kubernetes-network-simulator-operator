@@ -109,8 +109,12 @@ func (in *Device) PodName() string {
 	return in.Name + "-pod"
 }
 
-func (in Device) NetworkName() string {
-	return in.Name + "-network-policy"
+func (in Device) NetworkNameConnection() string {
+	return in.Name + "-network-policy-dev-con"
+}
+
+func (in Device) NetworkNameDefault() string {
+	return in.Name + "-network-policy-default"
 }
 
 func (in Device) ServiceName() string {
