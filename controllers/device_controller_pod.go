@@ -188,6 +188,11 @@ func (r DeviceReconciler) createPod(
 	}
 	pod.ObjectMeta.Labels["Patriot-Device"] = device.Name
 	pod.ObjectMeta.Labels["Patriot"] = "device"
+
+	if device.Spec.EnableInternet {
+		pod.ObjectMeta.Labels["Patriot-allow-internet"] = "true"
+	}
+
 	if err := ctrl.SetControllerReference(device, pod, r.Scheme); err != nil {
 		log.V(1).Info("Failed to set controller reference for pod", "pod", pod)
 		return nil, err

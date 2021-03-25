@@ -118,6 +118,12 @@ spec:
                   - networkPolicyPorts
                   type: object
                 type: array
+              enableInternet:
+                description: EnableInternet enables internet connection for the device.
+                  It enables egress connection to everything, in the cluster. However,
+                  you wont be able to access another device because another device
+                  needs ingress enabled to be able to receive connection.
+                type: boolean
               networkName:
                 description: Name of the network where to deploy device
                 type: string
@@ -6419,6 +6425,7 @@ spec:
                     type: string
                 type: object
             required:
+            - enableInternet
             - networkName
             - podSpec
             - serviceSpec

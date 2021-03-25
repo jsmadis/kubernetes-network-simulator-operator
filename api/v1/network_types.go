@@ -70,6 +70,10 @@ func init() {
 	SchemeBuilder.Register(&Network{}, &NetworkList{})
 }
 
-func (in Network) NetworkPolicyName() string {
-	return in.Name + "-network-policy"
+func (in Network) NetworkPolicyNameIsolation() string {
+	return in.Name + "-network-policy-isolation"
+}
+
+func (in Network) NetworkPolicyNameInternet() string {
+	return in.Name + "-network-policy-internet"
 }

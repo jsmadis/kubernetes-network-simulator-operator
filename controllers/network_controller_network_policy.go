@@ -29,12 +29,21 @@ import (
 
 // ManageNetworkPolicyLogic manages whole logic about network policies for the patriot network
 func (r NetworkReconciler) ManageNetworkPolicyLogic(network networksimulatorv1.Network, ctx context.Context, log logr.Logger) (ctrl.Result, error, bool) {
-	if r.isNetworkPolicyBeingDeleted(&network, ctx) {
+	if r.isNetworkPolicyBeingDeleted(network.NetworkPolicyNameIsolation(), &network, ctx) {
 		log.V(1).Info("Network policy is being deleted")
 		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil, false
 	}
 
-	if err := r.createOrUpdateNetworkPolicy(&network, ctx, log); err != nil {
+	if r.isNetworkPolicyBeingDeleted(network.NetworkPolicyNameInternet(), &network, ctx) {
+		log.V(1).Info("Internet network policy is being deleted")
+		return ctrl.Result{RequeueAfter: 2 * time.Second}, nil, false
+	}
+
+	if err := r.manageIsolationNetworkPolicy(&network, ctx, log); err != nil {
+		return ctrl.Result{}, err, false
+	}
+
+	if err := r.manageInternetNetworkPolicy(&network, ctx, log); err != nil {
 		return ctrl.Result{}, err, false
 	}
 
@@ -42,17 +51,17 @@ func (r NetworkReconciler) ManageNetworkPolicyLogic(network networksimulatorv1.N
 }
 
 // isNetworkPolicyBeingDeleted checks if the network policy for the patrit network is being deleted
-func (r NetworkReconciler) isNetworkPolicyBeingDeleted(network *networksimulatorv1.Network, ctx context.Context) bool {
-	networkPolicy, err := r.GetNetworkPolicy(network.NetworkPolicyName(), network.Name, ctx)
+func (r NetworkReconciler) isNetworkPolicyBeingDeleted(name string, network *networksimulatorv1.Network, ctx context.Context) bool {
+	networkPolicy, err := r.GetNetworkPolicy(name, network.Name, ctx)
 	if err != nil {
 		return false
 	}
 	return util.IsBeingDeleted(networkPolicy)
 }
 
-// createNetworkPolicy creates or updates network policy for the patriot network
-func (r *NetworkReconciler) createOrUpdateNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
-	name := network.NetworkPolicyName()
+// manageIsolationNetworkPolicy manages the network policy which isolates the network (creates or updates the netwrok policy)
+func (r NetworkReconciler) manageIsolationNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+	name := network.NetworkPolicyNameIsolation()
 	var ingress []v12.NetworkPolicyIngressRule
 	var egress []v12.NetworkPolicyEgressRule
 
@@ -83,6 +92,37 @@ func (r *NetworkReconciler) createOrUpdateNetworkPolicy(network *networksimulato
 			PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress, v12.PolicyTypeIngress},
 		},
 	}
+	return r.createOrUpdateNetworkPolicy(networkPolicy, network, ctx, log)
+}
+
+// manageInternetNetworkPolicy manages network policy that enables internet (egress) network policy
+// that enables for selected pods (with label "Patriot-allow-internet": "true") to be able to connect to the internet
+func (r NetworkReconciler) manageInternetNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+	name := network.NetworkPolicyNameInternet()
+
+	networkPolicy := &v12.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+			Name:        name,
+			Namespace:   network.Name,
+		},
+		Spec: v12.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{"Patriot-allow-internet": "true"},
+			},
+			Egress:      []v12.NetworkPolicyEgressRule{},
+			PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress},
+		},
+	}
+
+	return r.createOrUpdateNetworkPolicy(networkPolicy, network, ctx, log)
+}
+
+// createNetworkPolicy creates or updates network policy for the patriot network
+func (r *NetworkReconciler) createOrUpdateNetworkPolicy(networkPolicy *v12.NetworkPolicy,
+	network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+
 	if err := ctrl.SetControllerReference(network, networkPolicy, r.Scheme); err != nil {
 		log.Error(err, "Unable to set controller reference to network policy")
 		return err
