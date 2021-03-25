@@ -22,6 +22,7 @@ import (
 	networksimulatorv1 "github.com/jsmadis/kubernetes-network-simulator-operator/api/v1"
 	v12 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 )
 
@@ -40,6 +41,10 @@ func (r DeviceReconciler) ManageNetworkPolicyLogic(device networksimulatorv1.Dev
 		}
 	}
 
+	if err := r.manageNetworkPolicyDefault(&device, ctx, log); err != nil {
+		return ctrl.Result{}, nil, false
+	}
+
 	return ctrl.Result{}, nil, true
 }
 
@@ -47,6 +52,12 @@ func (r DeviceReconciler) ManageNetworkPolicyLogic(device networksimulatorv1.Dev
 func (r DeviceReconciler) ManageCleanUpNetworkPolicy(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
 	if r.isNetworkPolicyCreated(device.NetworkNameConnection(), device, ctx) {
 		if err := r.deleteNetworkPolicy(device.NetworkNameConnection(), device, ctx, log); err != nil {
+			return err
+		}
+	}
+
+	if r.isNetworkPolicyCreated(device.NetworkNameDefault(), device, ctx) {
+		if err := r.deleteNetworkPolicy(device.NetworkNameDefault(), device, ctx, log); err != nil {
 			return err
 		}
 	}
@@ -110,6 +121,28 @@ func (r DeviceReconciler) manageNetworkPolicyConnection(
 			Egress:      egress,
 			PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress, v12.PolicyTypeIngress},
 		},
+	}
+
+	return r.createOrUpdateNetworkPolicy(networkPolicy, device, ctx, log)
+}
+
+// manageNetworkPolicyDefault manages default network policy that is created from device.Spec.NetworkPolicySpec
+func (r DeviceReconciler) manageNetworkPolicyDefault(device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
+	// Skip when NetworkPolicySpec is empty
+	if reflect.DeepEqual(device.Spec.NetworkPolicySpec, v12.NetworkPolicySpec{}) {
+		return nil
+	}
+
+	name := device.NetworkNameDefault()
+
+	networkPolicy := &v12.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+			Name:        name,
+			Namespace:   device.Spec.NetworkName,
+		},
+		Spec: *device.Spec.NetworkPolicySpec.DeepCopy(),
 	}
 
 	return r.createOrUpdateNetworkPolicy(networkPolicy, device, ctx, log)

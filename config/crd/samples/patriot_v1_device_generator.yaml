@@ -4,18 +4,18 @@ metadata:
   name: device-generator-sample
 spec:
   networkName: network-example
-#  deviceIngressPorts:
-#    - deviceName: device-generator-listener-sample
-#      networkName: network-example1
-#      networkPolicyPorts:
-#        - protocol: UDP
-#          port: 5683
-#  deviceEgressPorts:
-#    - deviceName: device-generator-listener-sample
-#      networkName: network-example
-#      networkPolicyPorts:
-#        - protocol: UDP
-#          port: 5683
+  deviceIngressPorts:
+    - deviceName: device-generator-listener-sample
+      networkName: network-example1
+      networkPolicyPorts:
+        - protocol: UDP
+          port: 5683
+  deviceEgressPorts:
+    - deviceName: device-generator-listener-sample
+      networkName: network-example
+      networkPolicyPorts:
+        - protocol: UDP
+          port: 5683
   serviceSpec:
     type: NodePort
     ports:

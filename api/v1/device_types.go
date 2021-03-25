@@ -63,8 +63,13 @@ type DeviceSpec struct {
 	// EnableInternet enables internet connection for the device.
 	// It enables egress connection to everything, in the cluster. However, you wont be able to access another device
 	// because another device needs ingress enabled to be able to receive connection.
-	// + optional
+	// +optional
 	EnableInternet bool `json:"enableInternet"`
+
+	// NetworkPolicySpec Spec for network policy that is applied to the device
+	// pod selector will be added by the operator
+	// +optional
+	NetworkPolicySpec v12.NetworkPolicySpec `json:"networkPolicySpec"`
 }
 
 // DeviceStatus defines the observed state of Device
