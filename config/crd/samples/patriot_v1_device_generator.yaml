@@ -16,6 +16,14 @@ spec:
       networkPolicyPorts:
         - protocol: UDP
           port: 5683
+  networkPolicySpec:
+    podSelector: {}
+    ingress:
+      - from:
+          -  ipBlock:
+              cidr: 192.168.49.1/24
+    policyTypes:
+      - Ingress
   serviceSpec:
     type: NodePort
     ports:
