@@ -32,6 +32,7 @@ type DevicePorts struct {
 	NetworkName string `json:"networkName"`
 
 	// network policy pods
+	// +optional
 	NetworkPolicyPorts []v12.NetworkPolicyPort `json:"networkPolicyPorts"`
 }
 

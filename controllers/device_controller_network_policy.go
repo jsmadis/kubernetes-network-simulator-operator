@@ -75,10 +75,7 @@ func (r DeviceReconciler) isNetworkPolicyCreated(name string, device networksimu
 
 // shouldBeNetworkPolicyCreated checks if it is necessary to create network policy for given device
 func (r DeviceReconciler) shouldBeNetworkPolicyConnectionCreated(device networksimulatorv1.Device, ctx context.Context) bool {
-	if len(device.Spec.DeviceEgressPorts) == 0 && len(device.Spec.DeviceIngressPorts) == 0 {
-		return false
-	}
-	return !r.isNetworkPolicyCreated(device.NetworkNameConnection(), device, ctx)
+	return !(len(device.Spec.DeviceEgressPorts) == 0 && len(device.Spec.DeviceIngressPorts) == 0)
 }
 
 // deleteNetworkPolicy deletes network policy created for given device
@@ -172,10 +169,16 @@ func (r DeviceReconciler) createOrUpdateNetworkPolicy(policy *v12.NetworkPolicy,
 func processIngressNetworkPolicy(device *networksimulatorv1.Device) []v12.NetworkPolicyIngressRule {
 	var ingress []v12.NetworkPolicyIngressRule
 	for _, deviceIngressPort := range device.Spec.DeviceIngressPorts {
-		ingress = append(ingress, v12.NetworkPolicyIngressRule{
+		var ingressRule = v12.NetworkPolicyIngressRule{
 			Ports: deviceIngressPort.NetworkPolicyPorts,
 			From:  processNetworkPolicyPeer(deviceIngressPort),
-		})
+		}
+
+		if deviceIngressPort.NetworkPolicyPorts != nil {
+			ingressRule.Ports = deviceIngressPort.NetworkPolicyPorts
+		}
+
+		ingress = append(ingress, ingressRule)
 	}
 	return ingress
 }
@@ -185,10 +188,15 @@ func processIngressNetworkPolicy(device *networksimulatorv1.Device) []v12.Networ
 func processEgressNetworkPolicy(device *networksimulatorv1.Device) []v12.NetworkPolicyEgressRule {
 	var egress []v12.NetworkPolicyEgressRule
 	for _, deviceEgressPort := range device.Spec.DeviceEgressPorts {
-		egress = append(egress, v12.NetworkPolicyEgressRule{
-			Ports: deviceEgressPort.NetworkPolicyPorts,
-			To:    processNetworkPolicyPeer(deviceEgressPort),
-		})
+		var egressRule = v12.NetworkPolicyEgressRule{
+			To: processNetworkPolicyPeer(deviceEgressPort),
+		}
+
+		if deviceEgressPort.NetworkPolicyPorts != nil {
+			egressRule.Ports = deviceEgressPort.NetworkPolicyPorts
+		}
+
+		egress = append(egress, egressRule)
 	}
 	return egress
 }

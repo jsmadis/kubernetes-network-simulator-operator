@@ -74,7 +74,6 @@ spec:
                       type: array
                   required:
                   - networkName
-                  - networkPolicyPorts
                   type: object
                 type: array
               deviceIngressPorts:
@@ -115,7 +114,6 @@ spec:
                       type: array
                   required:
                   - networkName
-                  - networkPolicyPorts
                   type: object
                 type: array
               enableInternet:
