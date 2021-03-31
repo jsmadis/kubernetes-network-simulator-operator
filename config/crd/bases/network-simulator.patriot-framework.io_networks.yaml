@@ -46,7 +46,7 @@ spec:
                 description: NetworkEgressPorts, specifies ports from which this network
                   can create connection
                 items:
-                  description: Ports specifies Device, network and ports used in the
+                  description: Ports specifies Device, Network and ports used in the
                     network policy
                   properties:
                     deviceName:
@@ -86,7 +86,7 @@ spec:
                 description: NetworkIngressPorts, specifies ports to which this network
                   can receive connection
                 items:
-                  description: Ports specifies Device, network and ports used in the
+                  description: Ports specifies Device, Network and ports used in the
                     network policy
                   properties:
                     deviceName:

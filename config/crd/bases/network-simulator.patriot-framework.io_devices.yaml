@@ -40,7 +40,7 @@ spec:
                 description: Device egress ports, specifies devices to which can this
                   device create connection
                 items:
-                  description: Ports specifies Device, network and ports used in the
+                  description: Ports specifies Device, Network and ports used in the
                     network policy
                   properties:
                     deviceName:
@@ -80,7 +80,7 @@ spec:
                 description: Device ingress ports, specifies devices from which can
                   this device receive connection
                 items:
-                  description: Ports specifies Device, network and ports used in the
+                  description: Ports specifies Device, Network and ports used in the
                     network policy
                   properties:
                     deviceName:

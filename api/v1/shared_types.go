@@ -18,7 +18,7 @@ package v1
 
 import v12 "k8s.io/api/networking/v1"
 
-// Ports specifies Device, network and ports used in the network policy
+// Ports specifies Device, Network and ports used in the network policy
 type Ports struct {
 	// name of the device
 	// +optional
