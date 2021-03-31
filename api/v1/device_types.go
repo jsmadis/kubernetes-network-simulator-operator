@@ -22,20 +22,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// DevicePorts specifies Device, network and ports used in the network policy
-type DevicePorts struct {
-	// name of the device
-	// +optional
-	DeviceName string `json:"deviceName,omitempty"`
-
-	// name of the network
-	NetworkName string `json:"networkName"`
-
-	// network policy pods
-	// +optional
-	NetworkPolicyPorts []v12.NetworkPolicyPort `json:"networkPolicyPorts"`
-}
-
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
@@ -55,11 +41,11 @@ type DeviceSpec struct {
 
 	// Device ingress ports, specifies devices from which can this device receive connection
 	// +optional
-	DeviceIngressPorts []DevicePorts `json:"deviceIngressPorts"`
+	DeviceIngressPorts []Ports `json:"deviceIngressPorts"`
 
 	// Device egress ports, specifies devices to which can this device create connection
 	// +optional
-	DeviceEgressPorts []DevicePorts `json:"deviceEgressPorts"`
+	DeviceEgressPorts []Ports `json:"deviceEgressPorts"`
 
 	// EnableInternet enables internet connection for the device.
 	// It enables egress connection to everything, in the cluster. However, you wont be able to access another device

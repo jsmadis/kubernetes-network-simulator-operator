@@ -32,9 +32,17 @@ type NetworkSpec struct {
 	// +optional
 	DisableInsideIngressTraffic bool `json:"disableInsideIngressTraffic"`
 
-	// Disable egress traffice inside network
+	// Disable egress traffic inside network
 	// +optional
 	DisableInsideEgressTraffic bool `json:"disableInsideEgressTraffic"`
+
+	// NetworkIngressPorts, specifies ports to which this network can receive connection
+	// +optional
+	NetworkIngressPorts []Ports `json:"networkIngressPorts"`
+
+	// NetworkEgressPorts, specifies ports from which this network can create connection
+	// +optional
+	NetworkEgressPorts []Ports `json:"networkEgressPorts"`
 }
 
 // NetworkStatus defines the observed state of Network
@@ -76,4 +84,8 @@ func (in Network) NetworkPolicyNameIsolation() string {
 
 func (in Network) NetworkPolicyNameInternet() string {
 	return in.Name + "-network-policy-internet"
+}
+
+func (in Network) NetworkPolicyNameConnection() string {
+	return in.Name + "-network-policy-con"
 }

@@ -20,6 +20,7 @@ import (
 	"context"
 	"github.com/go-logr/logr"
 	networksimulatorv1 "github.com/jsmadis/kubernetes-network-simulator-operator/api/v1"
+	"github.com/jsmadis/kubernetes-network-simulator-operator/pkg/util"
 	v12 "k8s.io/api/networking/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
@@ -35,7 +36,7 @@ func (r DeviceReconciler) ManageNetworkPolicyLogic(device networksimulatorv1.Dev
 		return ctrl.Result{}, nil, false
 	} else {
 		if r.isNetworkPolicyCreated(device.NetworkNameConnection(), device, ctx) {
-			if err := r.deleteNetworkPolicy(device.NetworkNameConnection(), device, ctx, log); err != nil {
+			if err := r.DeleteNetworkPolicy(device.NetworkNameConnection(), device.Spec.NetworkName, ctx, log); err != nil {
 				return ctrl.Result{}, nil, false
 			}
 		}
@@ -51,13 +52,13 @@ func (r DeviceReconciler) ManageNetworkPolicyLogic(device networksimulatorv1.Dev
 // ManageCleanUpNetworkPolicy manages clean up of all network policies created for given device
 func (r DeviceReconciler) ManageCleanUpNetworkPolicy(device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
 	if r.isNetworkPolicyCreated(device.NetworkNameConnection(), device, ctx) {
-		if err := r.deleteNetworkPolicy(device.NetworkNameConnection(), device, ctx, log); err != nil {
+		if err := r.DeleteNetworkPolicy(device.NetworkNameConnection(), device.Spec.NetworkName, ctx, log); err != nil {
 			return err
 		}
 	}
 
 	if r.isNetworkPolicyCreated(device.NetworkNameDefault(), device, ctx) {
-		if err := r.deleteNetworkPolicy(device.NetworkNameDefault(), device, ctx, log); err != nil {
+		if err := r.DeleteNetworkPolicy(device.NetworkNameDefault(), device.Spec.NetworkName, ctx, log); err != nil {
 			return err
 		}
 	}
@@ -78,30 +79,14 @@ func (r DeviceReconciler) shouldBeNetworkPolicyConnectionCreated(device networks
 	return !(len(device.Spec.DeviceEgressPorts) == 0 && len(device.Spec.DeviceIngressPorts) == 0)
 }
 
-// deleteNetworkPolicy deletes network policy created for given device
-func (r DeviceReconciler) deleteNetworkPolicy(name string, device networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
-	networkPolicy, err := r.GetNetworkPolicy(name, device.Spec.NetworkName, ctx)
-	if err != nil {
-		log.V(1).Info("Unable to get network policy when cleaning up", "err", err)
-		return err
-	}
-	if err := r.GetClient().Delete(ctx, networkPolicy); err != nil {
-		log.Error(err, "unable to delete network policy for device when cleaning up")
-		return err
-	}
-	log.V(1).Info("Deleted network policy for the device", "network-policy", networkPolicy)
-	return nil
-
-}
-
 // manageNetworkPolicyDeviceConnection creates or updates network policy for device connection
 // with other devices outside the network
 func (r DeviceReconciler) manageNetworkPolicyConnection(
 	device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
 	name := device.NetworkNameConnection()
 
-	ingress := processIngressNetworkPolicy(device)
-	egress := processEgressNetworkPolicy(device)
+	ingress := util.ProcessIngressNetworkPolicy(device.Spec.DeviceIngressPorts)
+	egress := util.ProcessEgressNetworkPolicy(device.Spec.DeviceEgressPorts)
 
 	networkPolicy := &v12.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
@@ -162,62 +147,6 @@ func (r DeviceReconciler) createOrUpdateNetworkPolicy(policy *v12.NetworkPolicy,
 	log.V(1).Info("Created network policy", "network-policy", policy, "operation", op)
 
 	return nil
-}
-
-// processIngressNetworkPolicy
-// returns array of network policy ingress rules that are created from device.Spec.DeviceIngressPorts
-func processIngressNetworkPolicy(device *networksimulatorv1.Device) []v12.NetworkPolicyIngressRule {
-	var ingress []v12.NetworkPolicyIngressRule
-	for _, deviceIngressPort := range device.Spec.DeviceIngressPorts {
-		var ingressRule = v12.NetworkPolicyIngressRule{
-			Ports: deviceIngressPort.NetworkPolicyPorts,
-			From:  processNetworkPolicyPeer(deviceIngressPort),
-		}
-
-		if deviceIngressPort.NetworkPolicyPorts != nil {
-			ingressRule.Ports = deviceIngressPort.NetworkPolicyPorts
-		}
-
-		ingress = append(ingress, ingressRule)
-	}
-	return ingress
-}
-
-// processEgressNetworkPolicy
-//returns array of network policy egress rules that are created from device.Spec.DeviceEgressPorts
-func processEgressNetworkPolicy(device *networksimulatorv1.Device) []v12.NetworkPolicyEgressRule {
-	var egress []v12.NetworkPolicyEgressRule
-	for _, deviceEgressPort := range device.Spec.DeviceEgressPorts {
-		var egressRule = v12.NetworkPolicyEgressRule{
-			To: processNetworkPolicyPeer(deviceEgressPort),
-		}
-
-		if deviceEgressPort.NetworkPolicyPorts != nil {
-			egressRule.Ports = deviceEgressPort.NetworkPolicyPorts
-		}
-
-		egress = append(egress, egressRule)
-	}
-	return egress
-}
-
-//processNetworkPolicyPeer creates array of network policy pear from device port struct
-func processNetworkPolicyPeer(ports networksimulatorv1.DevicePorts) []v12.NetworkPolicyPeer {
-	var peers []v12.NetworkPolicyPeer
-
-	// If DeviceName is empty select every pod --> device should see every pod from other network
-	podSelectorLabelSelector := &metav1.LabelSelector{}
-	if ports.DeviceName != "" {
-		podSelectorLabelSelector.MatchLabels = map[string]string{"Patriot-Device": ports.DeviceName}
-	}
-
-	peers = append(peers, v12.NetworkPolicyPeer{
-		PodSelector: podSelectorLabelSelector,
-		NamespaceSelector: &metav1.LabelSelector{
-			MatchLabels: map[string]string{"Patriot-Network": ports.NetworkName},
-		},
-	})
-	return peers
 }
 
 // devicePodSelector returns pod selector that selects given device

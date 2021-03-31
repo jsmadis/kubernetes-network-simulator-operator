@@ -100,6 +100,46 @@ func (r NetworkReconciler) manageIsolationNetworkPolicy(network *networksimulato
 func (r NetworkReconciler) manageInternetNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
 	name := network.NetworkPolicyNameInternet()
 
+	ingress := util.ProcessIngressNetworkPolicy(network.Spec.NetworkIngressPorts)
+	egress := util.ProcessEgressNetworkPolicy(network.Spec.NetworkEgressPorts)
+
+	networkPolicy := &v12.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+			Name:        name,
+			Namespace:   network.Name,
+		},
+		Spec: v12.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{},
+		},
+	}
+	if len(ingress) != 0 {
+		networkPolicy.Spec.Ingress = ingress
+		networkPolicy.Spec.PolicyTypes = append(networkPolicy.Spec.PolicyTypes, v12.PolicyTypeIngress)
+	}
+
+	if len(egress) != 0 {
+		networkPolicy.Spec.Egress = egress
+		networkPolicy.Spec.PolicyTypes = append(networkPolicy.Spec.PolicyTypes, v12.PolicyTypeEgress)
+	}
+
+	// we dont want to create network policy without rules
+	if len(ingress) == 0 && len(egress) == 0 {
+		// We need to delete old policy if they were created before
+		oldNetwork, err := r.GetNetworkPolicy(name, network.Name, ctx)
+		if err == nil && oldNetwork != nil {
+			return r.DeleteNetworkPolicy(name, network.Name, ctx, log)
+		}
+		return nil
+	}
+
+	return r.createOrUpdateNetworkPolicy(networkPolicy, network, ctx, log)
+}
+
+func (r NetworkReconciler) manageConnectionNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+	name := network.NetworkPolicyNameConnection()
+
 	networkPolicy := &v12.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels:      make(map[string]string),
@@ -115,7 +155,6 @@ func (r NetworkReconciler) manageInternetNetworkPolicy(network *networksimulator
 			PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress},
 		},
 	}
-
 	return r.createOrUpdateNetworkPolicy(networkPolicy, network, ctx, log)
 }
 

@@ -84,3 +84,19 @@ func (r ReconcilerBase) GetNetworkPolicy(name string, namespace string, ctx cont
 	return &networkPolicy, nil
 
 }
+
+// DeleteNetworkPolicy deletes network policy
+func (r ReconcilerBase) DeleteNetworkPolicy(name string, namespace string, ctx context.Context, log logr.Logger) error {
+	networkPolicy, err := r.GetNetworkPolicy(name, namespace, ctx)
+	if err != nil {
+		log.V(1).Info("Unable to get network policy when cleaning up", "err", err)
+		return err
+	}
+	if err := r.GetClient().Delete(ctx, networkPolicy); err != nil {
+		log.Error(err, "unable to delete network policy for device when cleaning up")
+		return err
+	}
+	log.V(1).Info("Deleted network policy for the device", "network-policy", networkPolicy)
+	return nil
+
+}

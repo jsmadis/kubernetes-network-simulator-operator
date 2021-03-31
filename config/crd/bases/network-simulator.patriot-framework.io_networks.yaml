@@ -37,11 +37,91 @@ spec:
             description: NetworkSpec defines the desired state of Network
             properties:
               disableInsideEgressTraffic:
-                description: Disable egress traffice inside network
+                description: Disable egress traffic inside network
                 type: boolean
               disableInsideIngressTraffic:
                 description: Disable ingress traffic inside network
                 type: boolean
+              networkEgressPorts:
+                description: NetworkEgressPorts, specifies ports from which this network
+                  can create connection
+                items:
+                  description: Ports specifies Device, network and ports used in the
+                    network policy
+                  properties:
+                    deviceName:
+                      description: name of the device
+                      type: string
+                    networkName:
+                      description: name of the network
+                      type: string
+                    networkPolicyPorts:
+                      description: network policy pods
+                      items:
+                        description: NetworkPolicyPort describes a port to allow traffic
+                          on
+                        properties:
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: The port on the given protocol. This can
+                              either be a numerical or named port on a pod. If this
+                              field is not provided, this matches all port names and
+                              numbers.
+                            x-kubernetes-int-or-string: true
+                          protocol:
+                            default: TCP
+                            description: The protocol (TCP, UDP, or SCTP) which traffic
+                              must match. If not specified, this field defaults to
+                              TCP.
+                            type: string
+                        type: object
+                      type: array
+                  required:
+                  - networkName
+                  type: object
+                type: array
+              networkIngressPorts:
+                description: NetworkIngressPorts, specifies ports to which this network
+                  can receive connection
+                items:
+                  description: Ports specifies Device, network and ports used in the
+                    network policy
+                  properties:
+                    deviceName:
+                      description: name of the device
+                      type: string
+                    networkName:
+                      description: name of the network
+                      type: string
+                    networkPolicyPorts:
+                      description: network policy pods
+                      items:
+                        description: NetworkPolicyPort describes a port to allow traffic
+                          on
+                        properties:
+                          port:
+                            anyOf:
+                            - type: integer
+                            - type: string
+                            description: The port on the given protocol. This can
+                              either be a numerical or named port on a pod. If this
+                              field is not provided, this matches all port names and
+                              numbers.
+                            x-kubernetes-int-or-string: true
+                          protocol:
+                            default: TCP
+                            description: The protocol (TCP, UDP, or SCTP) which traffic
+                              must match. If not specified, this field defaults to
+                              TCP.
+                            type: string
+                        type: object
+                      type: array
+                  required:
+                  - networkName
+                  type: object
+                type: array
             type: object
           status:
             description: NetworkStatus defines the observed state of Network
