@@ -36,13 +36,13 @@ type NetworkSpec struct {
 	// +optional
 	DisableInsideEgressTraffic bool `json:"disableInsideEgressTraffic"`
 
-	// NetworkIngressPorts, specifies ports to which this network can receive connection
+	// NetworkIngressRules, specifies rules, where you define network or device from which this network can receive connection
 	// +optional
-	NetworkIngressPorts []Ports `json:"networkIngressPorts"`
+	NetworkIngressRules []ConnectionRule `json:"networkIngressRules"`
 
-	// NetworkEgressPorts, specifies ports from which this network can create connection
+	// NetworkEgressRules, specifies rules, where you define network or device to which this network can create connection
 	// +optional
-	NetworkEgressPorts []Ports `json:"networkEgressPorts"`
+	NetworkEgressRules []ConnectionRule `json:"networkEgressRules"`
 }
 
 // NetworkStatus defines the observed state of Network

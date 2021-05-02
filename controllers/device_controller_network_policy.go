@@ -76,7 +76,7 @@ func (r DeviceReconciler) isNetworkPolicyCreated(name string, device networksimu
 
 // shouldBeNetworkPolicyCreated checks if it is necessary to create network policy for given device
 func (r DeviceReconciler) shouldBeNetworkPolicyConnectionCreated(device networksimulatorv1.Device, ctx context.Context) bool {
-	return !(len(device.Spec.DeviceEgressPorts) == 0 && len(device.Spec.DeviceIngressPorts) == 0)
+	return !(len(device.Spec.DeviceEgressRules) == 0 && len(device.Spec.DeviceIngressRules) == 0)
 }
 
 // manageNetworkPolicyDeviceConnection creates or updates network policy for device connection
@@ -85,8 +85,8 @@ func (r DeviceReconciler) manageNetworkPolicyConnection(
 	device *networksimulatorv1.Device, ctx context.Context, log logr.Logger) error {
 	name := device.NetworkNameConnection()
 
-	ingress := util.ProcessIngressNetworkPolicy(device.Spec.DeviceIngressPorts)
-	egress := util.ProcessEgressNetworkPolicy(device.Spec.DeviceEgressPorts)
+	ingress := util.ProcessIngressNetworkPolicy(device.Spec.DeviceIngressRules)
+	egress := util.ProcessEgressNetworkPolicy(device.Spec.DeviceEgressRules)
 
 	networkPolicy := &v12.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{

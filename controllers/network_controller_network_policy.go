@@ -100,8 +100,8 @@ func (r NetworkReconciler) manageIsolationNetworkPolicy(network *networksimulato
 func (r NetworkReconciler) manageInternetNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
 	name := network.NetworkPolicyNameInternet()
 
-	ingress := util.ProcessIngressNetworkPolicy(network.Spec.NetworkIngressPorts)
-	egress := util.ProcessEgressNetworkPolicy(network.Spec.NetworkEgressPorts)
+	ingress := util.ProcessIngressNetworkPolicy(network.Spec.NetworkIngressRules)
+	egress := util.ProcessEgressNetworkPolicy(network.Spec.NetworkEgressRules)
 
 	networkPolicy := &v12.NetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{

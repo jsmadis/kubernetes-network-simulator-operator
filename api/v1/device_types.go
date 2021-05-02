@@ -41,11 +41,11 @@ type DeviceSpec struct {
 
 	// Device ingress ports, specifies devices from which can this device receive connection
 	// +optional
-	DeviceIngressPorts []Ports `json:"deviceIngressPorts"`
+	DeviceIngressRules []ConnectionRule `json:"deviceIngressRules"`
 
 	// Device egress ports, specifies devices to which can this device create connection
 	// +optional
-	DeviceEgressPorts []Ports `json:"deviceEgressPorts"`
+	DeviceEgressRules []ConnectionRule `json:"deviceEgressRules"`
 
 	// EnableInternet enables internet connection for the device.
 	// It enables egress connection to everything, in the cluster. However, you wont be able to access another device

@@ -7,8 +7,8 @@ import (
 )
 
 // processIngressNetworkPolicy
-// returns array of network policy ingress rules that are created from device.Spec.DeviceIngressPorts
-func ProcessIngressNetworkPolicy(ports []networksimulatorv1.Ports) []v12.NetworkPolicyIngressRule {
+// returns array of network policy ingress rules that are created from device.Spec.DeviceIngressRules
+func ProcessIngressNetworkPolicy(ports []networksimulatorv1.ConnectionRule) []v12.NetworkPolicyIngressRule {
 	var ingress []v12.NetworkPolicyIngressRule
 	for _, deviceIngressPort := range ports {
 		var ingressRule = v12.NetworkPolicyIngressRule{
@@ -26,8 +26,8 @@ func ProcessIngressNetworkPolicy(ports []networksimulatorv1.Ports) []v12.Network
 }
 
 // processEgressNetworkPolicy
-//returns array of network policy egress rules that are created from device.Spec.DeviceEgressPorts
-func ProcessEgressNetworkPolicy(ports []networksimulatorv1.Ports) []v12.NetworkPolicyEgressRule {
+//returns array of network policy egress rules that are created from device.Spec.DeviceEgressRules
+func ProcessEgressNetworkPolicy(ports []networksimulatorv1.ConnectionRule) []v12.NetworkPolicyEgressRule {
 	var egress []v12.NetworkPolicyEgressRule
 	for _, deviceEgressPort := range ports {
 		var egressRule = v12.NetworkPolicyEgressRule{
@@ -44,7 +44,7 @@ func ProcessEgressNetworkPolicy(ports []networksimulatorv1.Ports) []v12.NetworkP
 }
 
 //processNetworkPolicyPeer creates array of network policy pear from device port struct
-func processNetworkPolicyPeer(ports networksimulatorv1.Ports) []v12.NetworkPolicyPeer {
+func processNetworkPolicyPeer(ports networksimulatorv1.ConnectionRule) []v12.NetworkPolicyPeer {
 	var peers []v12.NetworkPolicyPeer
 
 	// If DeviceName is empty select every pod --> device should see every pod from other network

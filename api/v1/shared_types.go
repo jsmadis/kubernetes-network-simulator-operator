@@ -18,8 +18,8 @@ package v1
 
 import v12 "k8s.io/api/networking/v1"
 
-// Ports specifies Device, Network and ports used in the network policy
-type Ports struct {
+// ConnectionRule specifies Device, Network and ports used in the network policy
+type ConnectionRule struct {
 	// name of the device
 	// +optional
 	DeviceName string `json:"deviceName,omitempty"`
@@ -27,7 +27,7 @@ type Ports struct {
 	// name of the network
 	NetworkName string `json:"networkName"`
 
-	// network policy pods
+	// network policy ports
 	// +optional
 	NetworkPolicyPorts []v12.NetworkPolicyPort `json:"networkPolicyPorts"`
 }
