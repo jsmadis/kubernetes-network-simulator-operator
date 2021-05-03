@@ -36,12 +36,12 @@ spec:
           spec:
             description: DeviceSpec defines the desired state of Device
             properties:
-              deviceEgressPorts:
+              deviceEgressRules:
                 description: Device egress ports, specifies devices to which can this
                   device create connection
                 items:
-                  description: Ports specifies Device, Network and ports used in the
-                    network policy
+                  description: ConnectionRule specifies Device, Network and ports
+                    used in the network policy
                   properties:
                     deviceName:
                       description: name of the device
@@ -50,7 +50,7 @@ spec:
                       description: name of the network
                       type: string
                     networkPolicyPorts:
-                      description: network policy pods
+                      description: network policy ports
                       items:
                         description: NetworkPolicyPort describes a port to allow traffic
                           on
@@ -76,12 +76,12 @@ spec:
                   - networkName
                   type: object
                 type: array
-              deviceIngressPorts:
+              deviceIngressRules:
                 description: Device ingress ports, specifies devices from which can
                   this device receive connection
                 items:
-                  description: Ports specifies Device, Network and ports used in the
-                    network policy
+                  description: ConnectionRule specifies Device, Network and ports
+                    used in the network policy
                   properties:
                     deviceName:
                       description: name of the device
@@ -90,7 +90,7 @@ spec:
                       description: name of the network
                       type: string
                     networkPolicyPorts:
-                      description: network policy pods
+                      description: network policy ports
                       items:
                         description: NetworkPolicyPort describes a port to allow traffic
                           on
