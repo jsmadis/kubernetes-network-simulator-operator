@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"time"
 )
 
@@ -115,6 +116,8 @@ func (r DeviceReconciler) createOrUpdateService(device *networksimulatorv1.Devic
 		log.Error(err, "create or update service failed")
 		return err
 	}
-	log.V(1).Info("Created or Updated the service successfully", "operation", op)
+	if op != controllerutil.OperationResultNone {
+		log.V(1).Info("Created or Updated the service successfully", "operation", op)
+	}
 	return nil
 }

@@ -25,6 +25,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 )
 
 // ManageNetworkPolicyLogic manages all logic for device controller about network policy, creating, updating deleting...
@@ -144,7 +145,9 @@ func (r DeviceReconciler) createOrUpdateNetworkPolicy(policy *v12.NetworkPolicy,
 		return err
 	}
 
-	log.V(1).Info("Created network policy", "network-policy", policy, "operation", op)
+	if op != controllerutil.OperationResultNone {
+		log.V(1).Info("Created network policy", "network-policy", policy, "operation", op)
+	}
 
 	return nil
 }
