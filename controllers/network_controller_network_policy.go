@@ -43,6 +43,10 @@ func (r NetworkReconciler) ManageNetworkPolicyLogic(network networksimulatorv1.N
 		return ctrl.Result{}, err, false
 	}
 
+	if err := r.manageConnectionNetworkPolicy(&network, ctx, log); err != nil {
+		return ctrl.Result{}, err, false
+	}
+
 	if err := r.manageInternetNetworkPolicy(&network, ctx, log); err != nil {
 		return ctrl.Result{}, err, false
 	}
@@ -100,6 +104,28 @@ func (r NetworkReconciler) manageIsolationNetworkPolicy(network *networksimulato
 func (r NetworkReconciler) manageInternetNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
 	name := network.NetworkPolicyNameInternet()
 
+	networkPolicy := &v12.NetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels:      make(map[string]string),
+			Annotations: make(map[string]string),
+			Name:        name,
+			Namespace:   network.Name,
+		},
+		Spec: v12.NetworkPolicySpec{
+			PodSelector: metav1.LabelSelector{
+				MatchLabels: map[string]string{"Patriot-allow-internet": "true"},
+			},
+			Egress:      []v12.NetworkPolicyEgressRule{{}},
+			PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress},
+		},
+	}
+	return r.createOrUpdateNetworkPolicy(networkPolicy, network, ctx, log)
+}
+
+// manageConnectionNetworkPolicy manages network policy which is responsible for connecting devices or other networks together
+func (r NetworkReconciler) manageConnectionNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
+	name := network.NetworkPolicyNameConnection()
+
 	ingress := util.ProcessIngressNetworkPolicy(network.Spec.NetworkIngressRules)
 	egress := util.ProcessEgressNetworkPolicy(network.Spec.NetworkEgressRules)
 
@@ -134,27 +160,6 @@ func (r NetworkReconciler) manageInternetNetworkPolicy(network *networksimulator
 		return nil
 	}
 
-	return r.createOrUpdateNetworkPolicy(networkPolicy, network, ctx, log)
-}
-
-func (r NetworkReconciler) manageConnectionNetworkPolicy(network *networksimulatorv1.Network, ctx context.Context, log logr.Logger) error {
-	name := network.NetworkPolicyNameConnection()
-
-	networkPolicy := &v12.NetworkPolicy{
-		ObjectMeta: metav1.ObjectMeta{
-			Labels:      make(map[string]string),
-			Annotations: make(map[string]string),
-			Name:        name,
-			Namespace:   network.Name,
-		},
-		Spec: v12.NetworkPolicySpec{
-			PodSelector: metav1.LabelSelector{
-				MatchLabels: map[string]string{"Patriot-allow-internet": "true"},
-			},
-			Egress:      []v12.NetworkPolicyEgressRule{},
-			PolicyTypes: []v12.PolicyType{v12.PolicyTypeEgress},
-		},
-	}
 	return r.createOrUpdateNetworkPolicy(networkPolicy, network, ctx, log)
 }
 
