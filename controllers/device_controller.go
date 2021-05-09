@@ -32,6 +32,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"time"
 )
 
 // DeviceReconciler reconciles a Device object
@@ -66,9 +67,8 @@ func (r *DeviceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	if ok, err := r.IsValidDevice(&device, ctx); !ok {
-		log.Error(err, "Invalid CR of network", "device", device)
-		return ctrl.Result{}, err
+	if ok, err, result := r.IsValidDevice(&device, ctx, log); !ok {
+		return result, err
 	}
 
 	if ok := r.IsInitialized(&device); !ok {
@@ -166,16 +166,18 @@ func (r DeviceReconciler) addWatchers(mgr ctrl.Manager) error {
 }
 
 // IsValidDevice checks if the device is valid
-func (r *DeviceReconciler) IsValidDevice(obj metav1.Object, ctx context.Context) (bool, error) {
+func (r *DeviceReconciler) IsValidDevice(obj metav1.Object, ctx context.Context, log logr.Logger) (bool, error, ctrl.Result) {
 	deviceCrd, ok := obj.(*networksimulatorv1.Device)
 	if !ok {
-		return false, nil
+		log.V(1).Info("Invalid CR of the device", "device", deviceCrd)
+		return false, errors.New("invalid CR of device"), ctrl.Result{}
 	}
 	_, err := r.GetNamespace(deviceCrd.Spec.NetworkName, ctx)
 	if err != nil {
-		return false, errors.New("unable to find namespace of the network")
+		log.V(1).Info("Unable to find namespace of the network", "device", deviceCrd)
+		return false, nil, ctrl.Result{RequeueAfter: 2 * time.Second}
 	}
-	return true, nil
+	return true, nil, ctrl.Result{}
 }
 
 // IsInitialized checks if the device is initialized
